@@ -42,10 +42,12 @@ const Wordmark: React.FC<WordmarkProps> = ({
           letterSpacing: "-0.04em",
           fontSize: size,
           lineHeight: 1,
+          whiteSpace: "nowrap",
           [mq[0]]: { display: "none" },
         }}
       >
-        halo<span css={{ color: theme.colors.activity.on }}>.</span>
+        i shot marvin in the halo
+        <span css={{ color: theme.colors.activity.on }}>.</span>
       </span>
     </div>
   );
