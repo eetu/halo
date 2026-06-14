@@ -60,10 +60,36 @@ impl Storage {
 
         pv_storage::init_schema(&conn)?;
         solis_storage::init_schema(&conn)?;
+        crate::reserve::storage::init_schema(&conn)?;
 
         Ok(Self {
             conn: Mutex::new(conn),
         })
+    }
+
+    pub async fn query_reserve_profit(
+        &self,
+        provider: &str,
+        steps: &str,
+    ) -> rusqlite::Result<Vec<crate::reserve::models::ProfitRow>> {
+        let conn = self.conn.lock().await;
+        crate::reserve::storage::read_profit(&conn, provider, steps)
+    }
+
+    pub async fn query_reserve_fees(
+        &self,
+        provider: &str,
+    ) -> rusqlite::Result<Vec<crate::reserve::models::FeeRow>> {
+        let conn = self.conn.lock().await;
+        crate::reserve::storage::read_fees(&conn, provider)
+    }
+
+    pub async fn query_reserve_display_name(
+        &self,
+        provider: &str,
+    ) -> rusqlite::Result<Option<String>> {
+        let conn = self.conn.lock().await;
+        crate::reserve::storage::read_display_name(&conn, provider)
     }
 
     pub async fn upsert_pv_forecast(&self, forecast: &PvForecast) -> rusqlite::Result<usize> {

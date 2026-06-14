@@ -58,6 +58,7 @@ fn test_settings_with_mock(mock_url: &str) -> Settings {
         solis_key_id: "".into(),
         solis_key_secret: "".into(),
         solis_station_id: "".into(),
+        reserve_provider: "reserve".into(),
     }
 }
 

@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod hue;
 pub mod pv;
+pub mod reserve;
 pub mod settings;
 pub mod solis;
 pub mod storage;
@@ -46,6 +47,7 @@ pub struct AppState {
         solis::handlers::get_history,
         pv::handlers::get_forecast,
         pv::handlers::post_forecast,
+        reserve::handlers::get_reserve,
         status,
         sensor_history,
     ),
@@ -63,6 +65,8 @@ pub struct AppState {
         solis::models::SolisReading,
         pv::models::PvForecast,
         pv::models::PvPoint,
+        reserve::models::ReserveResponse,
+        reserve::models::ReservePoint,
         StatusResponse,
         storage::SensorReading,
     ))
@@ -214,6 +218,9 @@ pub fn create_app(
                             .route(web::get().to(pv::handlers::get_forecast))
                             .route(web::post().to(pv::handlers::post_forecast)),
                     ),
+                )
+                .service(
+                    web::scope("/reserve").route("", web::get().to(reserve::handlers::get_reserve)),
                 ),
         )
         .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi))
