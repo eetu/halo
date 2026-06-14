@@ -6,6 +6,7 @@ import CurrentTime from "./components/CurrentTime";
 import EnergyDailyHistory from "./components/Energy/DailyHistory";
 import EnergyFlow from "./components/Energy/Flow";
 import EnergyReserve from "./components/Energy/Reserve";
+import EnergySpotPrice from "./components/Energy/SpotPrice";
 import EnergySummary from "./components/Energy/Summary";
 import FmiWeatherBox from "./components/FmiWeatherBox";
 import History from "./components/History";
@@ -328,6 +329,7 @@ const App = () => {
                   gap: 16,
                 }}
               >
+                <EnergySpotPrice />
                 <EnergyFlow />
                 <EnergySummary />
                 <EnergyDailyHistory />

@@ -4,6 +4,7 @@ pub mod pv;
 pub mod reserve;
 pub mod settings;
 pub mod solis;
+pub mod spot;
 pub mod storage;
 pub mod weather;
 
@@ -28,6 +29,7 @@ pub struct AppState {
     pub weather_cache: Cache<weather::models::WeatherResponse>,
     pub solis_cache: Cache<solis::models::SolisWidgetData>,
     pub pv_cache: Cache<pv::models::PvForecast>,
+    pub spot_cache: Cache<spot::models::SpotResponse>,
     pub hue_events_tx: broadcast::Sender<hue::events::HueLiveEvent>,
     pub storage: storage::Storage,
 }
@@ -48,6 +50,7 @@ pub struct AppState {
         pv::handlers::get_forecast,
         pv::handlers::post_forecast,
         reserve::handlers::get_reserve,
+        spot::handlers::get_spot,
         status,
         sensor_history,
     ),
@@ -67,6 +70,8 @@ pub struct AppState {
         pv::models::PvPoint,
         reserve::models::ReserveResponse,
         reserve::models::ReservePoint,
+        spot::models::SpotResponse,
+        spot::models::HourPrice,
         StatusResponse,
         storage::SensorReading,
     ))
@@ -224,7 +229,8 @@ pub fn create_app(
                 )
                 .service(
                     web::scope("/reserve").route("", web::get().to(reserve::handlers::get_reserve)),
-                ),
+                )
+                .service(web::scope("/spot").route("", web::get().to(spot::handlers::get_spot))),
         )
         .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi))
         .service({
@@ -268,6 +274,7 @@ pub fn create_test_app_state_with(settings: Settings) -> Arc<AppState> {
         weather_cache: Cache::new(std::time::Duration::from_secs(3600)),
         solis_cache: Cache::new(std::time::Duration::from_secs(300)),
         pv_cache: Cache::new(std::time::Duration::from_secs(60)),
+        spot_cache: Cache::new(std::time::Duration::from_secs(1800)),
         hue_events_tx,
         storage,
     })
@@ -307,6 +314,7 @@ pub async fn run_server() -> std::io::Result<()> {
         weather_cache: Cache::new(std::time::Duration::from_secs(3600)),
         solis_cache: Cache::new(std::time::Duration::from_secs(300)),
         pv_cache: Cache::new(std::time::Duration::from_secs(60)),
+        spot_cache: Cache::new(std::time::Duration::from_secs(1800)),
         hue_events_tx: hue_events_tx.clone(),
         storage,
     });
