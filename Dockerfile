@@ -9,6 +9,8 @@ ARG HALO_IMAGE_TAG
 ENV VITE_HALO_IMAGE_TAG=$HALO_IMAGE_TAG
 WORKDIR /app
 COPY frontend/package.json frontend/yarn.lock frontend/.yarnrc.yml* ./
+# .yarnrc.yml pins yarnPath to a committed release; copy it in before install
+COPY frontend/.yarn/ ./.yarn/
 RUN corepack enable && yarn install --immutable --network-timeout 1000000
 COPY frontend/ .
 RUN yarn build
