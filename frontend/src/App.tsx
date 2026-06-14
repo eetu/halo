@@ -5,6 +5,7 @@ import { api } from "./api";
 import CurrentTime from "./components/CurrentTime";
 import EnergyDailyHistory from "./components/Energy/DailyHistory";
 import EnergyFlow from "./components/Energy/Flow";
+import EnergyReserve from "./components/Energy/Reserve";
 import EnergySummary from "./components/Energy/Summary";
 import FmiWeatherBox from "./components/FmiWeatherBox";
 import History from "./components/History";
@@ -330,6 +331,7 @@ const App = () => {
                 <EnergyFlow />
                 <EnergySummary />
                 <EnergyDailyHistory />
+                <EnergyReserve />
               </div>
             )}
 

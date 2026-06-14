@@ -15,6 +15,9 @@ pub struct Settings {
     pub solis_key_secret: String,
     pub solis_station_id: String,
     pub solis_base_url: String,
+    /// Default provider key for the reserve tables. Generic default; a local
+    /// deploy can set RESERVE_PROVIDER to a real name to match its updater.
+    pub reserve_provider: String,
 }
 
 impl Settings {
@@ -34,6 +37,7 @@ impl Settings {
             solis_key_secret: String::new(),
             solis_station_id: String::new(),
             solis_base_url: "https://www.soliscloud.com:13333".into(),
+            reserve_provider: "reserve".into(),
         }
     }
 
@@ -66,6 +70,7 @@ impl Settings {
             solis_station_id: env::var("SOLIS_STATION_ID").unwrap_or_default(),
             solis_base_url: env::var("SOLIS_BASE_URL")
                 .unwrap_or_else(|_| "https://www.soliscloud.com:13333".into()),
+            reserve_provider: env::var("RESERVE_PROVIDER").unwrap_or_else(|_| "reserve".into()),
         }
     }
 }

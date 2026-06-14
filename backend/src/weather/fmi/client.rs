@@ -36,10 +36,7 @@ pub async fn fetch_observation(
     let params = parse_timeseries_xml(&xml)?;
 
     // Find the latest timestamp that has at least temperature
-    let all_times: Vec<&DateTime<Utc>> = params
-        .values()
-        .flat_map(|ts| ts.keys())
-        .collect();
+    let all_times: Vec<&DateTime<Utc>> = params.values().flat_map(|ts| ts.keys()).collect();
 
     let latest = match all_times.into_iter().max() {
         Some(t) => *t,
@@ -103,8 +100,7 @@ pub async fn fetch_ecmwf(
     lon: &str,
 ) -> Result<Vec<FmiForecastPoint>, FmiError> {
     // ECMWF defaults to a short range — explicitly request 10 days ahead
-    let end = (chrono::Utc::now() + chrono::Duration::days(10))
-        .format("%Y-%m-%dT00:00:00Z");
+    let end = (chrono::Utc::now() + chrono::Duration::days(10)).format("%Y-%m-%dT00:00:00Z");
     let url = format!(
         "{base_url}?service=WFS&version=2.0.0&request=getFeature\
          &storedquery_id=ecmwf::forecast::surface::point::timevaluepair\
@@ -200,17 +196,14 @@ fn parse_timeseries_xml(xml: &str) -> Result<ParameterMap, FmiError> {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
                 let ln = e.local_name();
-                let local_name = std::str::from_utf8(ln.as_ref())
-                    .unwrap_or_default();
+                let local_name = std::str::from_utf8(ln.as_ref()).unwrap_or_default();
                 match local_name {
                     "MeasurementTimeseries" => {
                         for attr in e.attributes().flatten() {
                             let kn = attr.key.local_name();
-                            let key = std::str::from_utf8(kn.as_ref())
-                                .unwrap_or_default();
+                            let key = std::str::from_utf8(kn.as_ref()).unwrap_or_default();
                             if key == "id" {
-                                let id = std::str::from_utf8(&attr.value)
-                                    .unwrap_or_default();
+                                let id = std::str::from_utf8(&attr.value).unwrap_or_default();
                                 if let Some(name) = extract_param_name(id) {
                                     current_param = Some(name);
                                 }
@@ -224,8 +217,7 @@ fn parse_timeseries_xml(xml: &str) -> Result<ParameterMap, FmiError> {
             }
             Ok(Event::End(ref e)) => {
                 let ln = e.local_name();
-                let local_name = std::str::from_utf8(ln.as_ref())
-                    .unwrap_or_default();
+                let local_name = std::str::from_utf8(ln.as_ref()).unwrap_or_default();
                 match local_name {
                     "MeasurementTimeseries" => {
                         current_param = None;
@@ -244,18 +236,12 @@ fn parse_timeseries_xml(xml: &str) -> Result<ParameterMap, FmiError> {
                     if in_time {
                         current_time = Some(text);
                     } else if in_value {
-                        if let (Some(param), Some(time_str)) =
-                            (&current_param, &current_time)
-                        {
+                        if let (Some(param), Some(time_str)) = (&current_param, &current_time) {
                             if text != "NaN" {
-                                if let (Ok(time), Ok(val)) = (
-                                    time_str.parse::<DateTime<Utc>>(),
-                                    text.parse::<f64>(),
-                                ) {
-                                    params
-                                        .entry(param.clone())
-                                        .or_default()
-                                        .insert(time, val);
+                                if let (Ok(time), Ok(val)) =
+                                    (time_str.parse::<DateTime<Utc>>(), text.parse::<f64>())
+                                {
+                                    params.entry(param.clone()).or_default().insert(time, val);
                                 }
                             }
                         }
@@ -288,10 +274,7 @@ fn get_val(params: &ParameterMap, name: &str, time: &DateTime<Utc>) -> Option<f6
 }
 
 fn collect_times(params: &ParameterMap) -> Vec<DateTime<Utc>> {
-    let mut times: Vec<DateTime<Utc>> = params
-        .values()
-        .flat_map(|ts| ts.keys().copied())
-        .collect();
+    let mut times: Vec<DateTime<Utc>> = params.values().flat_map(|ts| ts.keys().copied()).collect();
     times.sort();
     times.dedup();
     times
@@ -309,11 +292,7 @@ fn compute_wind_from_uv(u: Option<f64>, v: Option<f64>) -> (Option<f64>, Option<
 }
 
 /// Infer weather symbol from available ECMWF data when WeatherSymbol3 is not available.
-fn infer_weather_symbol(
-    temp: Option<f64>,
-    precip: Option<f64>,
-    humidity: Option<f64>,
-) -> i32 {
+fn infer_weather_symbol(temp: Option<f64>, precip: Option<f64>, humidity: Option<f64>) -> i32 {
     let temp = temp.unwrap_or(0.0);
     let precip = precip.unwrap_or(0.0);
     let humidity = humidity.unwrap_or(50.0);
@@ -388,7 +367,8 @@ mod tests {
         assert_eq!(infer_weather_symbol(Some(10.0), Some(1.0), Some(80.0)), 32); // rain
         assert_eq!(infer_weather_symbol(Some(-5.0), Some(1.0), Some(80.0)), 52); // snow
         assert_eq!(infer_weather_symbol(Some(1.0), Some(1.0), Some(80.0)), 72); // sleet
-        assert_eq!(infer_weather_symbol(Some(10.0), Some(5.0), Some(80.0)), 33); // heavy rain
+        assert_eq!(infer_weather_symbol(Some(10.0), Some(5.0), Some(80.0)), 33);
+        // heavy rain
     }
 
     #[test]

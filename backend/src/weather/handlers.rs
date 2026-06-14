@@ -51,14 +51,8 @@ pub async fn fmi(
     .await
     {
         Ok(fmi_data) => {
-            let lat: f64 = query
-                .lat
-                .parse()
-                .expect("lat must be a valid number");
-            let lon: f64 = query
-                .lon
-                .parse()
-                .expect("lon must be a valid number");
+            let lat: f64 = query.lat.parse().expect("lat must be a valid number");
+            let lon: f64 = query.lon.parse().expect("lon must be a valid number");
             let converter = FmiConverter;
             let response = converter.convert(&fmi_data, lat, lon);
             state.weather_cache.set(key, response.clone()).await;

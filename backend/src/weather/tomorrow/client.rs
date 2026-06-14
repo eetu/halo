@@ -29,7 +29,11 @@ const FIELDS: &[&str] = &[
 
 const TIMESTEPS: &str = "current,1d,1h";
 
-pub async fn fetch(state: &AppState, lat: &str, lon: &str) -> Result<serde_json::Value, TomorrowError> {
+pub async fn fetch(
+    state: &AppState,
+    lat: &str,
+    lon: &str,
+) -> Result<serde_json::Value, TomorrowError> {
     let settings = &state.settings;
 
     let url = format!(
