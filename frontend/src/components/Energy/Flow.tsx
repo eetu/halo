@@ -123,7 +123,7 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
         backgroundColor: theme.colors.background.main,
         boxShadow: theme.shadows.main,
         borderRadius: theme.border.radius,
-        padding: "1.5em",
+        padding: "1.25em 1.5em",
       }}
     >
       <div
@@ -158,7 +158,7 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
         </div>
       </div>
       <svg
-        viewBox={isMobile ? "80 20 640 425" : "0 0 800 470"}
+        viewBox={isMobile ? "80 28 640 360" : "0 28 800 364"}
         css={{ width: "100%", height: "auto" }}
       >
         {/* PV → Inverter */}
