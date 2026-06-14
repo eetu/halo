@@ -26,11 +26,7 @@ pub fn sunrise_sunset(lat: f64, lon: f64, date: NaiveDate) -> (String, String) {
     (format_ms(sunrise_ms), format_ms(sunset_ms))
 }
 
-pub fn sunrise_sunset_for_utc_date(
-    lat: f64,
-    lon: f64,
-    dt: &DateTime<Utc>,
-) -> (String, String) {
+pub fn sunrise_sunset_for_utc_date(lat: f64, lon: f64, dt: &DateTime<Utc>) -> (String, String) {
     let helsinki = FixedOffset::east_opt(HELSINKI_OFFSET).unwrap();
     let local = dt.with_timezone(&helsinki);
     sunrise_sunset(lat, lon, local.date_naive())

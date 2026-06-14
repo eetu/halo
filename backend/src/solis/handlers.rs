@@ -37,8 +37,7 @@ pub async fn get_data(state: web::Data<Arc<AppState>>) -> HttpResponse {
                 tracing::warn!("Returning stale SolisCloud data");
                 return HttpResponse::Ok().json(stale);
             }
-            HttpResponse::BadGateway()
-                .json(serde_json::json!({"error": e.to_string()}))
+            HttpResponse::BadGateway().json(serde_json::json!({"error": e.to_string()}))
         }
     }
 }
@@ -65,7 +64,11 @@ pub async fn get_history(
     query: web::Query<SolisHistoryQuery>,
 ) -> HttpResponse {
     let hours = query.hours.unwrap_or(24).min(720);
-    match state.storage.query_solis_readings(hours, query.max_points).await {
+    match state
+        .storage
+        .query_solis_readings(hours, query.max_points)
+        .await
+    {
         Ok(readings) => HttpResponse::Ok().json(readings),
         Err(e) => {
             tracing::error!("Failed to query Solis history: {e}");

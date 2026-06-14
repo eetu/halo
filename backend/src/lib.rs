@@ -103,7 +103,11 @@ async fn sensor_history(
     query: web::Query<SensorHistoryQuery>,
 ) -> HttpResponse {
     let hours = query.hours.unwrap_or(24).min(720);
-    match state.storage.query_readings(query.sensor_id.as_deref(), hours, query.max_points).await {
+    match state
+        .storage
+        .query_readings(query.sensor_id.as_deref(), hours, query.max_points)
+        .await
+    {
         Ok(readings) => HttpResponse::Ok().json(readings),
         Err(e) => {
             tracing::error!("Failed to query sensor history: {e}");
@@ -145,7 +149,9 @@ async fn put_settings(
 ) -> HttpResponse {
     let data = body.into_inner().to_string();
     match state.storage.save_settings(&data).await {
-        Ok(()) => HttpResponse::Ok().json(serde_json::from_str::<serde_json::Value>(&data).unwrap()),
+        Ok(()) => {
+            HttpResponse::Ok().json(serde_json::from_str::<serde_json::Value>(&data).unwrap())
+        }
         Err(e) => {
             tracing::error!("Failed to save settings: {e}");
             HttpResponse::InternalServerError().finish()
@@ -208,10 +214,7 @@ pub fn create_app(
                             web::post().to(hue::handlers::toggle_motion),
                         ),
                 )
-                .service(
-                    web::scope("/solis")
-                        .route("", web::get().to(solis::handlers::get_data)),
-                )
+                .service(web::scope("/solis").route("", web::get().to(solis::handlers::get_data)))
                 .service(
                     web::scope("/pv").service(
                         web::resource("/forecast")

@@ -91,11 +91,7 @@ fn build_hourly(forecasts: &[FmiForecastPoint]) -> Vec<HourlyForecast> {
         .collect()
 }
 
-fn build_daily(
-    forecasts: &[FmiForecastPoint],
-    lat: f64,
-    lon: f64,
-) -> Vec<DailyForecast> {
+fn build_daily(forecasts: &[FmiForecastPoint], lat: f64, lon: f64) -> Vec<DailyForecast> {
     let helsinki = FixedOffset::east_opt(3 * 3600).unwrap();
 
     // Group forecasts by local date
@@ -110,17 +106,11 @@ fn build_daily(
         .into_iter()
         .filter(|(_, points)| points.len() >= 2) // need at least 2 data points for a daily summary
         .map(|(date, points)| {
-            let temps: Vec<f64> = points
-                .iter()
-                .filter_map(|p| p.temperature)
-                .collect();
+            let temps: Vec<f64> = points.iter().filter_map(|p| p.temperature).collect();
             let temp_max = temps.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
             let temp_min = temps.iter().cloned().fold(f64::INFINITY, f64::min);
 
-            let total_precip: f64 = points
-                .iter()
-                .filter_map(|p| p.precipitation_1h)
-                .sum();
+            let total_precip: f64 = points.iter().filter_map(|p| p.precipitation_1h).sum();
 
             let precip_type = determine_precip_type(&points);
 
@@ -185,17 +175,17 @@ fn most_severe_symbol(points: &[&FmiForecastPoint]) -> i32 {
 
 fn symbol_severity(symbol: i32) -> i32 {
     match symbol {
-        1 => 0,                        // clear
-        2 => 1,                        // partly cloudy
-        3 => 2,                        // cloudy
-        91 | 92 => 3,                  // fog
-        21 | 31 | 81 => 4,            // light rain/showers
-        41 | 51 => 5,                  // light snow
-        71 | 73 => 6,                  // sleet
-        22 | 32 | 82 => 7,            // rain/showers
-        42 | 52 | 72 => 8,            // snow/sleet
-        23 | 33 | 43 | 53 | 83 => 9,  // heavy precip
-        61..=64 => 10,                 // thunder
+        1 => 0,                      // clear
+        2 => 1,                      // partly cloudy
+        3 => 2,                      // cloudy
+        91 | 92 => 3,                // fog
+        21 | 31 | 81 => 4,           // light rain/showers
+        41 | 51 => 5,                // light snow
+        71 | 73 => 6,                // sleet
+        22 | 32 | 82 => 7,           // rain/showers
+        42 | 52 | 72 => 8,           // snow/sleet
+        23 | 33 | 43 | 53 | 83 => 9, // heavy precip
+        61..=64 => 10,               // thunder
         _ => 0,
     }
 }
@@ -207,11 +197,29 @@ fn guess_symbol_from_observation(obs: &FmiObservation) -> i32 {
     let temp = obs.temperature.unwrap_or(0.0);
 
     if precip > 2.0 {
-        if temp > 2.0 { 33 } else if temp <= 0.0 { 53 } else { 73 }
+        if temp > 2.0 {
+            33
+        } else if temp <= 0.0 {
+            53
+        } else {
+            73
+        }
     } else if precip > 0.0 {
-        if temp > 2.0 { 32 } else if temp <= 0.0 { 52 } else { 72 }
+        if temp > 2.0 {
+            32
+        } else if temp <= 0.0 {
+            52
+        } else {
+            72
+        }
     } else if let Some(okta) = cloud {
-        if okta <= 1.0 { 1 } else if okta <= 4.0 { 2 } else { 3 }
+        if okta <= 1.0 {
+            1
+        } else if okta <= 4.0 {
+            2
+        } else {
+            3
+        }
     } else {
         2 // default to partly cloudy when unknown
     }
@@ -227,8 +235,8 @@ fn wind_chill(temp: f64, wind_speed: f64) -> f64 {
     if wind_kmh < 4.8 {
         return temp;
     }
-    let wc = 13.12 + 0.6215 * temp - 11.37 * wind_kmh.powf(0.16)
-        + 0.3965 * temp * wind_kmh.powf(0.16);
+    let wc =
+        13.12 + 0.6215 * temp - 11.37 * wind_kmh.powf(0.16) + 0.3965 * temp * wind_kmh.powf(0.16);
     // Don't return a value higher than actual temperature
     wc.min(temp)
 }
