@@ -66,6 +66,8 @@ const BoxHeader: React.FC<BoxHeaderProps> = ({ children, hairline }) => {
   return (
     <div
       css={{
+        position: "relative",
+        overflow: "hidden",
         display: "flex",
         flexDirection: "column",
         backgroundColor: theme.colors.background.main,

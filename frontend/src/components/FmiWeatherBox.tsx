@@ -20,7 +20,11 @@ import Box from "./Box";
 import Icon from "./Icon";
 import LocationForm from "./LocationForm";
 import OfflineState from "./OfflineState";
+import WeatherAsciiBackground from "./WeatherAsciiBackground";
 import WeatherChart from "./WeatherChart";
+import WeatherTestControls, {
+  type WeatherTestCase,
+} from "./WeatherTestControls";
 
 type WeatherIconProps = {
   weatherSymbol: number;
@@ -42,6 +46,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
   const { location, isLoading: locationLoading } = useLocationSettings();
   const [now] = useState(() => new Date());
   const demo = useScreenshotMode();
+  const [testCase, setTestCase] = useState<WeatherTestCase | null>(null);
 
   const weatherUrl = location
     ? api(`/api/weather/fmi?lat=${location.lat}&lon=${location.lon}`)
@@ -142,9 +147,18 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
 
   const segments = getFmiTemperatureSegments(hourly);
 
-  const isNight =
+  const realIsNight =
     now < new Date(current.sunrise) || now > new Date(current.sunset);
-  const title = getFmiWeatherDescription(current.weatherSymbol);
+  // In demo mode the test controls can override the rendered weather so every
+  // animation kind is reachable; symbol -1 ("live") falls back to the real data.
+  const override = testCase && testCase.symbol >= 0;
+  const weatherSymbol = override ? testCase.symbol : current.weatherSymbol;
+  const isNight = override ? testCase.isNight : realIsNight;
+  const precipitation =
+    override && testCase.precip !== undefined
+      ? testCase.precip
+      : current.precipitation1h;
+  const title = getFmiWeatherDescription(weatherSymbol);
 
   return (
     <Box
@@ -163,8 +177,21 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
         </div>
       }
     >
+      <WeatherAsciiBackground
+        weatherSymbol={weatherSymbol}
+        isNight={isNight}
+        precipitation={precipitation}
+      />
+      {demo && (
+        <WeatherTestControls
+          activeId={testCase?.id ?? "live"}
+          onSelect={setTestCase}
+        />
+      )}
       <div
         css={{
+          position: "relative",
+          zIndex: 1,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -231,7 +258,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
             >{`${Math.round(current.temperatureApparent)}°`}</div>
           </div>
           <WeatherIcon
-            weatherSymbol={current.weatherSymbol}
+            weatherSymbol={weatherSymbol}
             isNight={isNight}
             css={{
               marginLeft: "25px",
@@ -285,6 +312,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
       <div
         css={{
           position: "relative",
+          zIndex: 1,
           display: "flex",
           marginTop: "1.5em",
           justifyContent: "space-between",
