@@ -4,8 +4,10 @@ import {
   CategoryScale,
   Chart as ChartJS,
   ChartOptions,
+  ChartType,
   LinearScale,
   Tooltip,
+  TooltipPositionerFunction,
 } from "chart.js";
 import { memo, useEffect, useState } from "react";
 import { Bar } from "react-chartjs-2";
@@ -15,6 +17,19 @@ import { mq } from "../../mq";
 import { HourPrice, SpotResponse } from "../../types/spot";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip);
+
+declare module "chart.js" {
+  interface TooltipPositionerMap {
+    aboveCursor: TooltipPositionerFunction<ChartType>;
+  }
+}
+
+// Pin the tooltip to the top of the chart at the pointer's x — on touch it then
+// rides above the fingertip (and slides along while scrubbing) instead of
+// hiding under it.
+Tooltip.positioners.aboveCursor = function (_items, evt) {
+  return { x: evt.x, y: this.chart.chartArea.top };
+};
 
 const HOUR_MS = 3_600_000;
 const SCALE_KEY = "halo.spot.showScale";
@@ -80,9 +95,15 @@ const PriceChart: React.FC<{
     responsive: true,
     maintainAspectRatio: false,
     animation: { duration: 0 },
+    // Select by column (x), not by hitting the bar itself — short bars are easy
+    // to tap, and dragging scrubs hour-to-hour.
+    interaction: { mode: "index", intersect: false },
     plugins: {
       legend: { display: false },
       tooltip: {
+        position: "aboveCursor",
+        caretSize: 0,
+        displayColors: false,
         callbacks: {
           title: (items) => `klo ${items[0].label}`,
           label: (ctx) => `${(ctx.parsed.y as number).toFixed(2)} ${unit}`,
@@ -104,7 +125,15 @@ const PriceChart: React.FC<{
   };
 
   return (
-    <div css={{ position: "relative", height: 120 }}>
+    <div
+      css={{
+        position: "relative",
+        height: 120,
+        touchAction: "pan-y", // let the page scroll vertically; chart scrubs horizontally
+        userSelect: "none",
+        WebkitTapHighlightColor: "transparent", // no grey flash on tap (iOS Safari)
+      }}
+    >
       <Bar data={data} options={options} />
     </div>
   );
@@ -140,19 +169,23 @@ const ScaleLegend: React.FC<{ unit: string }> = ({ unit }) => {
   );
 };
 
-// Day label + that day's min–max range — conveys the price scale with no
-// chart-area cost, so the y-axis can stay hidden.
+// Day label + price scale: that day's min–max, and for the day containing the
+// current hour a "lowest – now – highest" readout so the live price has context.
+// Costs no chart area, so the y-axis can stay hidden.
 const DayHeader: React.FC<{
   label: string;
   points: HourPrice[];
   unit: string;
-}> = ({ label, points, unit }) => {
+  now: number;
+}> = ({ label, points, unit, now }) => {
   const theme = useTheme();
   const sub = { ...theme.typography.caption, color: theme.colors.text.muted };
   const ps = points.map((p) => p.price);
-  const range = ps.length
-    ? `${Math.min(...ps).toFixed(1)}–${Math.max(...ps).toFixed(1)} ${unit}`
-    : "";
+  const current = points.find((p) => {
+    const start = new Date(p.hour).getTime();
+    return start <= now && now < start + HOUR_MS;
+  })?.price;
+
   return (
     <div
       css={{
@@ -164,7 +197,23 @@ const DayHeader: React.FC<{
       }}
     >
       <span>{label}</span>
-      <span>{range}</span>
+      {ps.length > 0 && (
+        <span>
+          {Math.min(...ps).toFixed(1)}
+          {current !== undefined ? (
+            <>
+              {" – "}
+              <span css={{ color: theme.colors.text.main, fontWeight: 600 }}>
+                {current.toFixed(1)}
+              </span>
+              {" – "}
+            </>
+          ) : (
+            "–"
+          )}
+          {Math.max(...ps).toFixed(1)} {unit}
+        </span>
+      )}
     </div>
   );
 };
@@ -288,7 +337,12 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
                 intrinsic width, so the charts scale on narrow phones instead
                 of overflowing. */}
             <div css={{ minWidth: 0 }}>
-              <DayHeader label="tänään" points={data.today} unit={data.unit} />
+              <DayHeader
+                label="tänään"
+                points={data.today}
+                unit={data.unit}
+                now={now}
+              />
               <PriceChart
                 points={data.today}
                 unit={data.unit}
@@ -302,6 +356,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
                 label="huomenna"
                 points={data.tomorrow}
                 unit={data.unit}
+                now={now}
               />
               {data.tomorrow.length ? (
                 <PriceChart

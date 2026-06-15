@@ -190,7 +190,7 @@ const App = () => {
       </button>
       <div
         css={{
-          width: 720,
+          width: 800,
           flexShrink: 0,
           padding: "16px 0",
           [mq[0]]: {
