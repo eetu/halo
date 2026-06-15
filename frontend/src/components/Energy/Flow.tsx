@@ -21,14 +21,43 @@ import { useMediaQuery } from "usehooks-ts";
 import { api, fetcher } from "../../api";
 import { SolisData } from "../../types/solis";
 
-const flow = keyframes`
-  to { stroke-dashoffset: -20; }
-`;
-
 const pulse = keyframes`
   0%, 100% { opacity: 1; transform: scale(1); }
   50%      { opacity: 0.75; transform: scale(1.04); }
 `;
+
+// Energy "packets" gliding along a conduit. Count, speed and opacity all scale
+// with the line's power (kW) so a trickle and a surge read differently — the
+// same intensity-from-data idea used by the weather rain/snow.
+const FlowParticles: React.FC<{
+  pathId: string;
+  color: string;
+  magnitude: number; // kW, absolute
+  reverse: boolean; // travel end→start (import / charging)
+}> = ({ pathId, color, magnitude, reverse }) => {
+  if (magnitude <= 0.05) return null;
+  const count = Math.min(8, Math.max(1, Math.round(magnitude * 1.2)));
+  const dur = Math.min(2.2, Math.max(0.8, 2.2 - magnitude * 0.18));
+  const opacity = Math.min(1, 0.45 + magnitude * 0.12);
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => (
+        <circle key={i} r={3.5} fill={color} opacity={opacity}>
+          <animateMotion
+            dur={`${dur}s`}
+            begin={`${(-(i / count) * dur).toFixed(2)}s`}
+            repeatCount="indefinite"
+            calcMode="linear"
+            keyPoints={reverse ? "1;0" : "0;1"}
+            keyTimes="0;1"
+          >
+            <mpath href={`#${pathId}`} />
+          </animateMotion>
+        </circle>
+      ))}
+    </>
+  );
+};
 
 const NodeIcon: React.FC<{
   cx: number;
@@ -88,14 +117,10 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
 
   const hasFlow = (v: number) => Math.abs(v) > 0.05;
 
-  const flowBase = {
+  const conduit = {
     fill: "none",
-    strokeWidth: 5,
-    strokeDasharray: "4 6",
-  };
-  const flowAnim = { animation: `${flow} 1.4s linear infinite` };
-  const flowAnimReverse = {
-    animation: `${flow} 1.4s linear infinite reverse`,
+    strokeWidth: 4,
+    strokeLinecap: "round" as const,
   };
 
   const pulseStyle = {
@@ -161,41 +186,60 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
         viewBox={isMobile ? "80 28 640 360" : "0 28 800 364"}
         css={{ width: "100%", height: "auto" }}
       >
-        {/* PV → Inverter */}
+        {/* Conduits — quiet base lines */}
         <path
+          id="flow-pv"
           d="M160,110 C260,110 300,210 400,210"
           stroke={theme.colors.activity.on}
-          opacity={pvActive ? 1 : 0.3}
-          css={[flowBase, pvActive && flowAnim]}
+          opacity={pvActive ? 0.3 : 0.12}
+          css={conduit}
         />
-        {/* Battery ↔ Inverter */}
         <path
+          id="flow-battery"
           d="M160,310 C260,310 300,210 400,210"
           stroke={theme.colors.battery}
-          opacity={batteryActive ? 1 : 0.3}
-          css={[
-            flowBase,
-            discharging > 0 && flowAnim,
-            charging > 0 && flowAnimReverse,
-          ]}
+          opacity={batteryActive ? 0.3 : 0.12}
+          css={conduit}
         />
-        {/* Inverter ↔ Grid */}
         <path
+          id="flow-grid"
           d="M400,210 C500,210 540,110 640,110"
-          stroke={theme.colors.activity.on}
-          opacity={gridActive ? 1 : 0.3}
-          css={[
-            flowBase,
-            exporting > 0 && flowAnim,
-            importing > 0 && flowAnimReverse,
-          ]}
+          stroke={theme.colors.grid}
+          opacity={gridActive ? 0.3 : 0.12}
+          css={conduit}
         />
-        {/* Inverter → Home */}
         <path
+          id="flow-home"
           d="M400,210 C500,210 540,310 640,310"
           stroke={theme.colors.home}
-          opacity={homeActive ? 1 : 0.3}
-          css={[flowBase, homeActive && flowAnim]}
+          opacity={homeActive ? 0.3 : 0.12}
+          css={conduit}
+        />
+
+        {/* Flowing energy packets — direction & intensity follow the data */}
+        <FlowParticles
+          pathId="flow-pv"
+          color={theme.colors.activity.on}
+          magnitude={pv}
+          reverse={false}
+        />
+        <FlowParticles
+          pathId="flow-battery"
+          color={theme.colors.battery}
+          magnitude={charging > 0 ? charging : discharging}
+          reverse={charging > 0}
+        />
+        <FlowParticles
+          pathId="flow-grid"
+          color={theme.colors.grid}
+          magnitude={importing > 0 ? importing : exporting}
+          reverse={importing > 0}
+        />
+        <FlowParticles
+          pathId="flow-home"
+          color={theme.colors.home}
+          magnitude={home}
+          reverse={false}
         />
 
         {/* PV node */}
@@ -317,14 +361,14 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
             cy="110"
             r={nodeSize}
             fill={theme.colors.background.light}
-            stroke={theme.colors.activity.on}
+            stroke={theme.colors.grid}
             strokeWidth={strokeWidth}
           />
           <NodeIcon
             cx={640}
             cy={110}
             size={nodeSize}
-            color={theme.colors.activity.on}
+            color={theme.colors.grid}
             icon={Plug}
           />
         </g>
