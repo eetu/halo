@@ -274,7 +274,7 @@ pub fn create_test_app_state_with(settings: Settings) -> Arc<AppState> {
         weather_cache: Cache::new(std::time::Duration::from_secs(3600)),
         solis_cache: Cache::new(std::time::Duration::from_secs(300)),
         pv_cache: Cache::new(std::time::Duration::from_secs(60)),
-        spot_cache: Cache::new(std::time::Duration::from_secs(1800)),
+        spot_cache: Cache::new(std::time::Duration::from_secs(600)),
         hue_events_tx,
         storage,
     })
@@ -314,7 +314,7 @@ pub async fn run_server() -> std::io::Result<()> {
         weather_cache: Cache::new(std::time::Duration::from_secs(3600)),
         solis_cache: Cache::new(std::time::Duration::from_secs(300)),
         pv_cache: Cache::new(std::time::Duration::from_secs(60)),
-        spot_cache: Cache::new(std::time::Duration::from_secs(1800)),
+        spot_cache: Cache::new(std::time::Duration::from_secs(600)),
         hue_events_tx: hue_events_tx.clone(),
         storage,
     });

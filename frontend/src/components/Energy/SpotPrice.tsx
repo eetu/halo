@@ -43,9 +43,9 @@ const PriceChart: React.FC<{
   unit: string;
   yMin: number;
   yMax: number;
-}> = ({ points, unit, yMin, yMax }) => {
+  now: number;
+}> = ({ points, unit, yMin, yMax, now }) => {
   const theme = useTheme();
-  const [now] = useState(() => Date.now());
   const prices = points.map((p) => p.price);
 
   // Time cues kept orthogonal to hue: past dimmed (alpha), current outlined.
@@ -173,6 +173,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
   const theme = useTheme();
   const [data, setData] = useState<SpotResponse>();
   const [error, setError] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   // The colour-scale gradient is hidden by default to save space; tapping the
   // header reveals it (no button/placeholder), remembered across reloads.
   const [showScale, setShowScale] = useState(
@@ -185,20 +186,40 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
     });
 
   useEffect(() => {
-    const controller = new AbortController();
-    fetch(api("/api/spot"), { signal: controller.signal })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((d: SpotResponse) => {
-        setData(d);
-        setError(false);
-      })
-      .catch((err) => {
-        if (err.name !== "AbortError") setError(true);
-      });
-    return () => controller.abort();
+    let controller: AbortController | null = null;
+    const load = () => {
+      controller?.abort();
+      controller = new AbortController();
+      fetch(api("/api/spot"), { signal: controller.signal })
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then((d: SpotResponse) => {
+          setData(d);
+          setError(false);
+          setNow(Date.now());
+        })
+        .catch((err) => {
+          if (err.name !== "AbortError") setError(true);
+        });
+    };
+
+    load();
+    // Refresh periodically and whenever the device wakes / the tab refocuses, so
+    // the day rollover (tomorrow→today at 00:00) and the current-hour highlight
+    // update instead of freezing at mount time.
+    const interval = setInterval(load, 5 * 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      controller?.abort();
+    };
   }, []);
 
   const sub = { ...theme.typography.caption, color: theme.colors.text.muted };
@@ -273,6 +294,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
                 unit={data.unit}
                 yMin={yMin}
                 yMax={yMax}
+                now={now}
               />
             </div>
             <div css={{ minWidth: 0 }}>
@@ -287,6 +309,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
                   unit={data.unit}
                   yMin={yMin}
                   yMax={yMax}
+                  now={now}
                 />
               ) : (
                 <div
