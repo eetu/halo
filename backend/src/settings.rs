@@ -39,7 +39,7 @@ impl Settings {
             solis_station_id: String::new(),
             solis_base_url: "https://www.soliscloud.com:13333".into(),
             reserve_provider: "reserve".into(),
-            spot_base_url: "https://api.spot-hinta.fi".into(),
+            spot_base_url: "https://dashboard.elering.ee".into(),
         }
     }
 
@@ -74,7 +74,7 @@ impl Settings {
                 .unwrap_or_else(|_| "https://www.soliscloud.com:13333".into()),
             reserve_provider: env::var("RESERVE_PROVIDER").unwrap_or_else(|_| "reserve".into()),
             spot_base_url: env::var("SPOT_BASE_URL")
-                .unwrap_or_else(|_| "https://api.spot-hinta.fi".into()),
+                .unwrap_or_else(|_| "https://dashboard.elering.ee".into()),
         }
     }
 }

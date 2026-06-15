@@ -1,13 +1,24 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-/// Raw entry from spot-hinta.fi `/TodayAndDayForward` (15-min resolution).
+/// One entry from Elering LIVE `/api/nps/price` — EUR/MWh ex-VAT, Unix-UTC ts.
 #[derive(Debug, Deserialize)]
-pub struct SpotEntry {
-    #[serde(rename = "DateTime")]
-    pub date_time: String, // RFC3339 with local offset, e.g. 2026-06-14T00:15:00+03:00
-    #[serde(rename = "PriceWithTax", default)]
-    pub price_with_tax: f64, // €/kWh, incl. VAT
+pub struct NpsEntry {
+    pub timestamp: i64,
+    pub price: f64,
+}
+
+/// `data` object: one array per bidding zone; we read Finland (`fi`).
+#[derive(Debug, Default, Deserialize)]
+pub struct NpsData {
+    #[serde(default)]
+    pub fi: Vec<NpsEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NpsResponse {
+    #[serde(default)]
+    pub data: NpsData,
 }
 
 /// One hourly bar. `hour` is the local-time hour start (RFC3339); `price` is
