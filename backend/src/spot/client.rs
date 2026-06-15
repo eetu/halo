@@ -9,6 +9,11 @@ use super::models::{HourPrice, NpsEntry, NpsResponse, SpotResponse};
 /// consumer price like the price apps do.
 const VAT: f64 = 1.255;
 
+/// Minimum hours before tomorrow counts as "published" — until the day-ahead
+/// auction lands (~14:00) Elering returns only an hour or two of tomorrow, and a
+/// lone bar isn't worth a chart (the frontend shows a placeholder instead).
+const MIN_TOMORROW_HOURS: usize = 20;
+
 /// Fetch today + tomorrow Finnish prices straight from the TSO-grade open source
 /// (Elering LIVE, Nord Pool day-ahead). API: <https://dashboard.elering.ee/api>
 pub async fn fetch(
@@ -42,12 +47,14 @@ pub async fn fetch(
         .error_for_status()?
         .json()
         .await?;
-    Ok(aggregate(resp.data.fi))
+    Ok(aggregate(resp.data.fi, now.date_naive()))
 }
 
-/// Average the 15-min entries into hourly bars (in Helsinki local time) and split
-/// into today/tomorrow; convert EUR/MWh ex-VAT → c/kWh incl. VAT.
-fn aggregate(entries: Vec<NpsEntry>) -> SpotResponse {
+/// Average the 15-min entries into hourly bars (in Helsinki local time), keyed to
+/// the real local dates so today/tomorrow don't drift; convert EUR/MWh ex-VAT →
+/// c/kWh incl. VAT. Tomorrow is dropped until it's a near-complete published day,
+/// so a lone post-midnight bar doesn't spill into the tomorrow chart.
+fn aggregate(entries: Vec<NpsEntry>, today: NaiveDate) -> SpotResponse {
     // (local date, hour) -> (price sum, count, hour-start datetime)
     let mut buckets: BTreeMap<(NaiveDate, u32), (f64, u32, DateTime<Tz>)> = BTreeMap::new();
     for e in &entries {
@@ -67,16 +74,10 @@ fn aggregate(entries: Vec<NpsEntry>) -> SpotResponse {
         slot.1 += 1;
     }
 
-    let mut dates: Vec<NaiveDate> = buckets.keys().map(|(d, _)| *d).collect();
-    dates.dedup(); // BTreeMap keys are sorted, so dups are adjacent
-
-    let to_hours = |target: Option<NaiveDate>| -> Vec<HourPrice> {
-        let Some(target) = target else {
-            return Vec::new();
-        };
+    let hours_for = |date: NaiveDate| -> Vec<HourPrice> {
         buckets
             .iter()
-            .filter(|((d, _), _)| *d == target)
+            .filter(|((d, _), _)| *d == date)
             .map(|(_, (sum, count, hour_start))| HourPrice {
                 hour: hour_start.to_rfc3339(),
                 price: (sum / *count as f64) / 10.0 * VAT, // EUR/MWh ex-VAT -> c/kWh incl VAT
@@ -84,18 +85,22 @@ fn aggregate(entries: Vec<NpsEntry>) -> SpotResponse {
             .collect()
     };
 
-    let today = to_hours(dates.first().copied());
-    let tomorrow = to_hours(dates.get(1).copied());
-    let today_average = if today.is_empty() {
+    let today_v = hours_for(today);
+    let tomorrow_v = today
+        .succ_opt()
+        .map(hours_for)
+        .filter(|h| h.len() >= MIN_TOMORROW_HOURS)
+        .unwrap_or_default();
+    let today_average = if today_v.is_empty() {
         0.0
     } else {
-        today.iter().map(|h| h.price).sum::<f64>() / today.len() as f64
+        today_v.iter().map(|h| h.price).sum::<f64>() / today_v.len() as f64
     };
 
     SpotResponse {
         unit: "c/kWh".into(),
-        today,
-        tomorrow,
+        today: today_v,
+        tomorrow: tomorrow_v,
         today_average,
     }
 }
