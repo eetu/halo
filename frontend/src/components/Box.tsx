@@ -8,9 +8,21 @@ type BoxProps = {
   className?: string;
   drawer?: React.ReactElement;
   loading?: boolean;
+  // full-bleed layer rendered behind header + footer; when set, those surfaces
+  // turn transparent so it shows through continuously (e.g. weather animation)
+  background?: React.ReactElement;
+  // overrides the header/footer divider colour (e.g. to match a sky backdrop)
+  borderColor?: string;
 } & React.HTMLAttributes<HTMLDivElement>;
 
-const Box: React.FC<BoxProps> = ({ className, children, drawer, loading }) => {
+const Box: React.FC<BoxProps> = ({
+  className,
+  children,
+  drawer,
+  loading,
+  background,
+  borderColor,
+}) => {
   const [collapsed, setCollapsed] = useState(true);
   const theme = useTheme();
 
@@ -35,6 +47,7 @@ const Box: React.FC<BoxProps> = ({ className, children, drawer, loading }) => {
     <div
       className={className}
       css={{
+        position: "relative",
         cursor: expandable ? "pointer" : "default",
         minWidth: 0,
         overflow: "hidden",
@@ -43,11 +56,26 @@ const Box: React.FC<BoxProps> = ({ className, children, drawer, loading }) => {
       }}
       onClick={expandable ? () => setCollapsed(!collapsed) : undefined}
     >
-      <BoxHeader hairline={expandable}>{children}</BoxHeader>
+      {background && (
+        <div css={{ position: "absolute", inset: 0, zIndex: 0 }}>
+          {background}
+        </div>
+      )}
+      <BoxHeader
+        hairline={expandable}
+        transparent={background !== undefined}
+        borderColor={borderColor}
+      >
+        {children}
+      </BoxHeader>
       {expandable && (
         <>
           <BoxDrawer collapsed={collapsed}>{drawer}</BoxDrawer>
-          <BoxFooter collapsed={collapsed} />
+          <BoxFooter
+            collapsed={collapsed}
+            transparent={background !== undefined}
+            borderColor={borderColor}
+          />
         </>
       )}
     </div>
@@ -58,21 +86,33 @@ export default Box;
 
 type BoxHeaderProps = {
   hairline: boolean;
+  transparent?: boolean;
+  borderColor?: string;
 } & React.HTMLAttributes<HTMLDivElement>;
 
-const BoxHeader: React.FC<BoxHeaderProps> = ({ children, hairline }) => {
+const BoxHeader: React.FC<BoxHeaderProps> = ({
+  children,
+  hairline,
+  transparent,
+  borderColor,
+}) => {
   const theme = useTheme();
 
   return (
     <div
       css={{
         position: "relative",
+        zIndex: 1,
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        backgroundColor: theme.colors.background.main,
+        backgroundColor: transparent
+          ? "transparent"
+          : theme.colors.background.main,
         padding: "1.5em",
-        borderBottom: hairline ? `1px ${theme.colors.border} solid` : "none",
+        borderBottom: hairline
+          ? `1px ${borderColor ?? theme.colors.border} solid`
+          : "none",
       }}
     >
       {children}
@@ -92,6 +132,8 @@ const BoxDrawer: React.FC<BoxDrawerProps> = ({ children, collapsed }) => {
     <div
       ref={wrapperRef}
       css={{
+        position: "relative",
+        zIndex: 1,
         display: "grid",
         gridTemplateRows: collapsed ? "0fr" : "1fr",
         transition: "grid-template-rows 0.15s ease",
@@ -118,19 +160,31 @@ const BoxDrawer: React.FC<BoxDrawerProps> = ({ children, collapsed }) => {
 
 type BoxFooterProps = {
   collapsed: boolean;
+  transparent?: boolean;
+  borderColor?: string;
 } & React.HTMLAttributes<HTMLDivElement>;
 
-const BoxFooter: React.FC<BoxFooterProps> = ({ collapsed }) => {
+const BoxFooter: React.FC<BoxFooterProps> = ({
+  collapsed,
+  transparent,
+  borderColor,
+}) => {
   const theme = useTheme();
 
   return (
     <div
       css={{
+        position: "relative",
+        zIndex: 1,
         display: "flex",
         justifyContent: "center",
         height: "25px",
-        backgroundColor: theme.colors.background.main,
-        borderTop: collapsed ? "none" : `1px ${theme.colors.border} solid`,
+        backgroundColor: transparent
+          ? "transparent"
+          : theme.colors.background.main,
+        borderTop: collapsed
+          ? "none"
+          : `1px ${borderColor ?? theme.colors.border} solid`,
         color: theme.colors.text.light,
       }}
     >
