@@ -10,6 +10,7 @@ import useLocationSettings from "../hooks/useLocationSettings";
 import useScreenshotMode from "../hooks/useScreenshotMode";
 import { PvForecast } from "../types/pv";
 import { WeatherData } from "../types/weather/fmi";
+import { weatherBorderColor } from "../weather/asciiSky";
 import {
   getFmiWeatherDescription,
   getFmiWeatherIcon,
@@ -159,11 +160,24 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
       ? testCase.precip
       : current.precipitation1h;
   const title = getFmiWeatherDescription(weatherSymbol);
+  const borderColor = weatherBorderColor(
+    weatherSymbol,
+    isNight,
+    theme.mode === "dark",
+  );
 
   return (
     <Box
       loading={!data}
       className={className}
+      borderColor={borderColor}
+      background={
+        <WeatherAsciiBackground
+          weatherSymbol={weatherSymbol}
+          isNight={isNight}
+          precipitation={precipitation}
+        />
+      }
       drawer={
         <div
           css={{
@@ -177,11 +191,6 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
         </div>
       }
     >
-      <WeatherAsciiBackground
-        weatherSymbol={weatherSymbol}
-        isNight={isNight}
-        precipitation={precipitation}
-      />
       {demo && (
         <WeatherTestControls
           activeId={testCase?.id ?? "live"}
@@ -326,7 +335,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
             css={{
               display: "flex",
               flexDirection: "column",
-              borderRight: `1px ${theme.colors.border} solid`,
+              borderRight: `1px ${borderColor ?? theme.colors.border} solid`,
               width: "25%",
               textAlign: "center",
               "&:last-of-type": {

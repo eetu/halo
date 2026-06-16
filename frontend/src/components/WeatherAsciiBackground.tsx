@@ -1,27 +1,7 @@
 import { useTheme } from "@emotion/react";
 import { useEffect, useRef } from "react";
 
-type WeatherKind =
-  | "clear-day"
-  | "clear-night"
-  | "clouds"
-  | "rain"
-  | "snow"
-  | "thunder"
-  | "fog";
-
-// Map an FMI WeatherSymbol3 code to a coarse animation kind. Sleet (7x/8x) is
-// folded into rain; partly-cloudy/cloudy into clouds; everything unrecognised
-// falls back to the clear sky for the current time of day.
-function weatherSymbolToKind(symbol: number, isNight: boolean): WeatherKind {
-  if (symbol >= 61 && symbol <= 64) return "thunder";
-  if (symbol >= 41 && symbol <= 53) return "snow";
-  if ((symbol >= 21 && symbol <= 33) || (symbol >= 71 && symbol <= 83))
-    return "rain";
-  if (symbol === 91 || symbol === 92) return "fog";
-  if (symbol === 2 || symbol === 3) return "clouds";
-  return isNight ? "clear-night" : "clear-day";
-}
+import { type WeatherKind, weatherSymbolToKind } from "../weather/asciiSky";
 
 // "fall" = falling particles (rain/snow), "twinkle" = stationary shimmer
 // (clear sky ambience), "field" = a scrolling fbm-noise haze rendered through a
@@ -44,6 +24,9 @@ type FieldCfg = {
   softness: number;
   // >0 thickens toward the bottom (low-lying fog banks)
   vGradient: number;
+  // backdrop sky fill — a dim sky behind lighter clouds reads as overcast
+  // rather than grey-smoke-on-white
+  sky: string;
 };
 
 type KindConfig = {
@@ -62,6 +45,10 @@ type KindConfig = {
   sway: number;
   field?: FieldCfg;
   flash?: boolean;
+  // rain/thunder: flick a small splash where drops hit the bottom
+  splash?: boolean;
+  // snow: gather a layer along the bottom and puff a "thud" as flakes land
+  accumulate?: boolean;
 };
 
 const MONO = 'ui-monospace, "SF Mono", "Space Grotesk", monospace';
@@ -134,7 +121,6 @@ function buildConfig(
 ): KindConfig {
   const rain = isDark ? "#7f93d8" : "#5fa9d6";
   const snow = isDark ? "#b4c6ec" : "#8fb6dd";
-  const cloud = isDark ? "#8a8a8a" : "#9a9a9a";
   const star = isDark ? "#a6a6a6" : "#8f8f8f";
   const sun = isDark ? "#e0953a" : "#f2a52a";
 
@@ -154,6 +140,7 @@ function buildConfig(
         vy: [lerp(150, 320, rainF), lerp(280, 540, rainF)],
         vx: [lerp(-50, -90, rainF), lerp(-30, -55, rainF)],
         sway: 0,
+        splash: true,
       };
     case "thunder": {
       const heavy = Math.max(0.5, rainF);
@@ -168,6 +155,7 @@ function buildConfig(
         vx: [-90, -55],
         sway: 0,
         flash: true,
+        splash: true,
       };
     }
     case "snow":
@@ -181,12 +169,35 @@ function buildConfig(
         vy: [lerp(14, 26, snowF), lerp(40, 64, snowF)],
         vx: [-8, 8],
         sway: 18,
+        accumulate: true,
+      };
+    case "partly-cloudy":
+      return {
+        glyphs: [],
+        color: isDark ? "#aab8d0" : "#ffffff",
+        alpha: isDark ? 0.6 : 0.75,
+        fontSize: 13,
+        motion: "field",
+        density: 0,
+        vy: [0, 0],
+        vx: [0, 0],
+        sway: 0,
+        field: {
+          ramp: " .:-=+*#",
+          scaleX: 1 / 120,
+          scaleY: 1 / 52,
+          drift: 12,
+          threshold: 0.58, // higher → smaller clouds, more blue sky peeking
+          softness: 0.32,
+          vGradient: 0,
+          sky: isDark ? "#243246" : "#bcd6f0",
+        },
       };
     case "clouds":
       return {
         glyphs: [],
-        color: cloud,
-        alpha: isDark ? 0.34 : 0.3,
+        color: isDark ? "#9aa6bf" : "#ffffff",
+        alpha: isDark ? 0.6 : 0.72,
         fontSize: 13,
         motion: "field",
         density: 0,
@@ -201,13 +212,14 @@ function buildConfig(
           threshold: 0.5,
           softness: 0.34,
           vGradient: 0,
+          sky: isDark ? "#1f2530" : "#dde3ec",
         },
       };
     case "fog":
       return {
         glyphs: [],
-        color: cloud,
-        alpha: isDark ? 0.24 : 0.22,
+        color: isDark ? "#8e98ad" : "#fbfcfe",
+        alpha: isDark ? 0.5 : 0.6,
         fontSize: 13,
         motion: "field",
         density: 0,
@@ -222,6 +234,7 @@ function buildConfig(
           threshold: 0.34,
           softness: 0.42,
           vGradient: 0.5,
+          sky: isDark ? "#1d222c" : "#e4e8ef",
         },
       };
     case "clear-night":
@@ -307,6 +320,10 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
       "(prefers-reduced-motion: reduce)",
     ).matches;
     const phase = moonPhase();
+    // The header/footer are transparent when this canvas is the box background,
+    // so the canvas paints the card surface itself — a dim sky for clouds/fog,
+    // the normal card colour otherwise.
+    const baseFill = cfg.field?.sky ?? theme.colors.background.main;
 
     let width = 0;
     let height = 0;
@@ -318,6 +335,17 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
     let cellW = 0;
     let cellH = 0;
     const seed = Math.floor(rand(0, 1000));
+
+    // Ground contact (rain splashes / snow pile + thuds).
+    type Impact = { x: number; y: number; life: number };
+    const splashes: Impact[] = [];
+    const thuds: Impact[] = [];
+    const groundW = cfg.fontSize * 0.6; // pile column width
+    const pileUnit = cfg.fontSize * 0.5; // height of one settled snow layer
+    const MAX_PILE = 3;
+    const MELT = 0.12; // layers/sec — keeps the snow band uneven and alive
+    let pileCols = 0;
+    let pile = new Float32Array(0);
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -339,6 +367,10 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
         particles = Array.from({ length: target }, () =>
           makeParticle(cfg, width, height),
         );
+        if (cfg.accumulate) {
+          pileCols = Math.max(1, Math.ceil(width / groundW) + 1);
+          pile = new Float32Array(pileCols);
+        }
       }
     };
 
@@ -453,7 +485,9 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
     };
 
     const draw = (dt: number) => {
-      ctx.clearRect(0, 0, width, height);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = baseFill;
+      ctx.fillRect(0, 0, width, height);
       ctx.font = `${cfg.fontSize}px ${MONO}`;
       const t = last / 1000;
 
@@ -488,7 +522,28 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
             if (cfg.sway > 0) {
               p.x += Math.sin(t * 0.8 + p.swayPhase) * cfg.sway * dt;
             }
-            if (p.y > height + cfg.fontSize) {
+            // ground contact: snow settles into a pile, rain splashes
+            let landed = false;
+            if (cfg.accumulate && pileCols > 0) {
+              const col = Math.min(
+                pileCols - 1,
+                Math.max(0, Math.floor(p.x / groundW)),
+              );
+              const landingY = height - pile[col] * pileUnit;
+              if (p.y >= landingY) {
+                if (pile[col] < MAX_PILE) pile[col] += 1;
+                if (thuds.length < 50) {
+                  thuds.push({ x: p.x, y: landingY, life: 1 });
+                }
+                landed = true;
+              }
+            } else if (cfg.splash && p.y >= height) {
+              if (splashes.length < 60) {
+                splashes.push({ x: p.x, y: height, life: 1 });
+              }
+              landed = true;
+            }
+            if (landed || p.y > height + cfg.fontSize) {
               p.y = -cfg.fontSize;
               p.x = rand(0, width);
               p.glyph = pick(cfg.glyphs);
@@ -502,6 +557,47 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
             ctx.globalAlpha = cfg.alpha * tw;
           }
           ctx.fillText(p.glyph, p.x, p.y);
+        }
+
+        // Settled snow layer + soft "thud" puffs as flakes land.
+        if (cfg.accumulate && pileCols > 0) {
+          ctx.fillStyle = cfg.color;
+          for (let c = 0; c < pileCols; c++) {
+            const stacks = Math.floor(pile[c]);
+            for (let k = 0; k < stacks; k++) {
+              ctx.globalAlpha = cfg.alpha * 0.9;
+              ctx.fillText(
+                "*",
+                c * groundW,
+                height - k * pileUnit - pileUnit / 2,
+              );
+            }
+            pile[c] = Math.max(0, pile[c] - MELT * dt);
+          }
+          for (let i = thuds.length - 1; i >= 0; i--) {
+            const th = thuds[i];
+            const spread = (1 - th.life) * 4;
+            ctx.globalAlpha = cfg.alpha * th.life * 0.7;
+            ctx.fillText("·", th.x - spread, th.y);
+            ctx.fillText("·", th.x + spread, th.y);
+            th.life -= dt * 2.5;
+            if (th.life <= 0) thuds.splice(i, 1);
+          }
+        }
+
+        // Rain splashes — two droplets flicking up and out from impact.
+        if (cfg.splash) {
+          ctx.fillStyle = cfg.color;
+          for (let i = splashes.length - 1; i >= 0; i--) {
+            const s = splashes[i];
+            const spread = (1 - s.life) * 5;
+            const rise = Math.sin((1 - s.life) * Math.PI) * 5;
+            ctx.globalAlpha = cfg.alpha * s.life;
+            ctx.fillText("·", s.x - spread, s.y - rise - 3);
+            ctx.fillText("·", s.x + spread, s.y - rise - 3);
+            s.life -= dt * 3.5;
+            if (s.life <= 0) splashes.splice(i, 1);
+          }
         }
       }
 
@@ -603,7 +699,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [kind, isDark, precipitation]);
+  }, [kind, isDark, precipitation, theme.colors.background.main]);
 
   return (
     <canvas
