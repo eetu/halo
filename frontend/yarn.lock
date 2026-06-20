@@ -4027,6 +4027,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"uqr@npm:^0.1.2":
+  version: 0.1.3
+  resolution: "uqr@npm:0.1.3"
+  checksum: 10/cde1dd270e3d39fc1870375d33a88c1ec7ac430c6e1b0b28943ad08b029dc9409076aa2213ebf2eb209cfa37abccca365d85f2cd3b1cdefbcfb68ab8c18857d3
+  languageName: node
+  linkType: hard
+
 "uri-js@npm:^4.2.2":
   version: 4.4.1
   resolution: "uri-js@npm:4.4.1"
@@ -4060,6 +4067,17 @@ __metadata:
   version: 1.0.2
   resolution: "util-deprecate@npm:1.0.2"
   checksum: 10/474acf1146cb2701fe3b074892217553dfcf9a031280919ba1b8d651a068c9b15d863b7303cb15bd00a862b498e6cf4ad7b4a08fb134edd5a6f7641681cb54a2
+  languageName: node
+  linkType: hard
+
+"vite-plugin-qrcode@npm:^0.4.1":
+  version: 0.4.1
+  resolution: "vite-plugin-qrcode@npm:0.4.1"
+  dependencies:
+    uqr: "npm:^0.1.2"
+  peerDependencies:
+    vite: ">=3"
+  checksum: 10/dd11488c2a038a4a6f7118e8eef5d825f3f3367c6ee2e0af432b2763eb2a83f104793b0376211d8cd7cb47866b8a191518477ba34f6c826e2820d700ba21e90c
   languageName: node
   linkType: hard
 
@@ -4220,6 +4238,7 @@ __metadata:
     unplugin-auto-import: "npm:^21.0.0"
     usehooks-ts: "npm:^3.1.1"
     vite: "npm:^8.0.16"
+    vite-plugin-qrcode: "npm:^0.4.1"
     vite-tsconfig-paths: "npm:^6.1.1"
     vitest: "npm:^4.1.9"
     vitest-browser-react: "npm:^2.2.0"
