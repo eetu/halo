@@ -4,6 +4,8 @@ pub struct Settings {
     pub tomorrow_io_api_key: String,
     pub tomorrow_io_base_url: String,
     pub fmi_base_url: String,
+    pub fmi_wms_base_url: String,
+    pub fmi_download_base_url: String,
     pub language: String,
     pub hue_bridge_address: String,
     pub hue_bridge_user: String,
@@ -27,6 +29,8 @@ impl Settings {
             tomorrow_io_api_key: String::new(),
             tomorrow_io_base_url: "https://api.tomorrow.io".into(),
             fmi_base_url: "https://opendata.fmi.fi/wfs".into(),
+            fmi_wms_base_url: "https://openwms.fmi.fi/geoserver/wms".into(),
+            fmi_download_base_url: "https://opendata.fmi.fi/download".into(),
             language: "fi".into(),
             hue_bridge_address: String::new(),
             hue_bridge_user: String::new(),
@@ -50,6 +54,10 @@ impl Settings {
                 .unwrap_or_else(|_| "https://api.tomorrow.io".into()),
             fmi_base_url: env::var("FMI_BASE_URL")
                 .unwrap_or_else(|_| "https://opendata.fmi.fi/wfs".into()),
+            fmi_wms_base_url: env::var("FMI_WMS_BASE_URL")
+                .unwrap_or_else(|_| "https://openwms.fmi.fi/geoserver/wms".into()),
+            fmi_download_base_url: env::var("FMI_DOWNLOAD_BASE_URL")
+                .unwrap_or_else(|_| "https://opendata.fmi.fi/download".into()),
             language: env::var("LANGUAGE").unwrap_or_else(|_| "fi".into()),
             hue_bridge_address: env::var("HUE_BRIDGE_ADDRESS").unwrap_or_default(),
             hue_bridge_user: env::var("HUE_BRIDGE_USER").unwrap_or_default(),

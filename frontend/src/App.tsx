@@ -1,5 +1,5 @@
 import { css, useTheme } from "@emotion/react";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { api } from "./api";
 import CurrentTime from "./components/CurrentTime";
@@ -19,6 +19,9 @@ import TemperatureBox from "./components/TemperatureBox";
 import Wordmark from "./components/Wordmark";
 import { mq } from "./mq";
 import { type HueLiveEvent, type Response, type Sensor } from "./types/hue";
+
+// Leaflet is heavy; only pull it in when the radar tab is opened.
+const RainMap = lazy(() => import("./components/RainMap"));
 
 const applyEvent = (data: Response, event: HueLiveEvent): Response => {
   switch (event.type) {
@@ -86,6 +89,7 @@ type View =
   | "energy"
   | "lights"
   | "motion"
+  | "radar"
   | "history"
   | "settings";
 
@@ -94,6 +98,7 @@ const VIEWS: { id: View; icon: string }[] = [
   { id: "energy", icon: "bolt" },
   { id: "lights", icon: "lightbulb" },
   { id: "motion", icon: "directions_run" },
+  { id: "radar", icon: "radar" },
   { id: "history", icon: "timeline" },
   { id: "settings", icon: "settings" },
 ];
@@ -347,6 +352,12 @@ const App = () => {
                 sensors={outside.concat(insideCold).concat(inside)}
                 error={!!error}
               />
+            )}
+
+            {view === "radar" && (
+              <Suspense fallback={null}>
+                <RainMap css={{ gridColumn: "1 / span 4" }} />
+              </Suspense>
             )}
 
             {view === "history" && (
