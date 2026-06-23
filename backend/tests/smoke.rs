@@ -47,6 +47,8 @@ fn test_settings_with_mock(mock_url: &str) -> Settings {
         tomorrow_io_api_key: "test-key".into(),
         tomorrow_io_base_url: mock_url.into(),
         fmi_base_url: mock_url.into(),
+        fmi_wms_base_url: mock_url.into(),
+        fmi_download_base_url: mock_url.into(),
         language: "fi".into(),
         hue_bridge_address: mock_url.into(),
         hue_bridge_user: "test-user".into(),

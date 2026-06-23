@@ -1032,10 +1032,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/geojson@npm:*":
+  version: 7946.0.16
+  resolution: "@types/geojson@npm:7946.0.16"
+  checksum: 10/34d07421bdd60e7b99fa265441d17ac6e9aef48e3ce22d04324127d0de1daf7fbaa0bd3be1cece2092eb6995f21da84afa5231e24621a2910ff7340bc98f496f
+  languageName: node
+  linkType: hard
+
 "@types/json-schema@npm:^7.0.15":
   version: 7.0.15
   resolution: "@types/json-schema@npm:7.0.15"
   checksum: 10/1a3c3e06236e4c4aab89499c428d585527ce50c24fe8259e8b3926d3df4cfbbbcf306cfc73ddfb66cbafc973116efd15967020b0f738f63e09e64c7d260519e7
+  languageName: node
+  linkType: hard
+
+"@types/leaflet@npm:^1.9.21":
+  version: 1.9.21
+  resolution: "@types/leaflet@npm:1.9.21"
+  dependencies:
+    "@types/geojson": "npm:*"
+  checksum: 10/a02eff00db3cbc374c67fa7c0df6c564918482fa00407146bfea19f92600a4009f39af7bb9e3face39845979c133bb67b5bd972472720beef1f285596f47a6d1
   languageName: node
   linkType: hard
 
@@ -2603,6 +2619,13 @@ __metadata:
   version: 0.37.0
   resolution: "known-css-properties@npm:0.37.0"
   checksum: 10/9bddf2eb980f707567e3fbf8f2daaca27f5d544f4a49eab26d696ae33f54410f82f0a3032097b083d9e889e285586696c7b4324e6393103e7d71a46ca4438bfd
+  languageName: node
+  linkType: hard
+
+"leaflet@npm:^1.9.4":
+  version: 1.9.4
+  resolution: "leaflet@npm:1.9.4"
+  checksum: 10/7b6a74d503980961a85bdabebf9d1162c26db0e88195800ceea311682b653d621718f2ada3c9aab903a735af9862c9ae278ba550d4429acbd954d43449cd0d77
   languageName: node
   linkType: hard
 
@@ -4215,6 +4238,7 @@ __metadata:
     "@anarkisti/eslint-config": "npm:^1.1.0"
     "@emotion/react": "npm:^11.14.0"
     "@floating-ui/react": "npm:^0.27.19"
+    "@types/leaflet": "npm:^1.9.21"
     "@types/react": "npm:^19.2.17"
     "@types/react-dom": "npm:^19.2.3"
     "@vitejs/plugin-react": "npm:^6.0.2"
@@ -4226,6 +4250,7 @@ __metadata:
     classnames: "npm:^2.5.1"
     date-fns: "npm:^4.4.0"
     eslint: "npm:^10.5.0"
+    leaflet: "npm:^1.9.4"
     lucide-react: "npm:^1.18.0"
     playwright: "npm:^1.60.0"
     prettier: "npm:^3.8.4"

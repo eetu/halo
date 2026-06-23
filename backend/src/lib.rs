@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod hue;
 pub mod pv;
+pub mod radar;
 pub mod reserve;
 pub mod settings;
 pub mod solis;
@@ -30,6 +31,8 @@ pub struct AppState {
     pub solis_cache: Cache<solis::models::SolisWidgetData>,
     pub pv_cache: Cache<pv::models::PvForecast>,
     pub spot_cache: Cache<spot::models::SpotResponse>,
+    pub radar_frames_cache: Cache<radar::models::RadarFrames>,
+    pub precip_forecast_cache: Cache<radar::models::PrecipForecast>,
     pub hue_events_tx: broadcast::Sender<hue::events::HueLiveEvent>,
     pub storage: storage::Storage,
 }
@@ -51,6 +54,8 @@ pub struct AppState {
         pv::handlers::post_forecast,
         reserve::handlers::get_reserve,
         spot::handlers::get_spot,
+        radar::handlers::frames,
+        radar::handlers::forecast,
         status,
         sensor_history,
     ),
@@ -72,6 +77,9 @@ pub struct AppState {
         reserve::models::ReservePoint,
         spot::models::SpotResponse,
         spot::models::HourPrice,
+        radar::models::RadarFrames,
+        radar::models::PrecipForecast,
+        radar::models::ForecastFrame,
         StatusResponse,
         storage::SensorReading,
     ))
@@ -230,7 +238,13 @@ pub fn create_app(
                 .service(
                     web::scope("/reserve").route("", web::get().to(reserve::handlers::get_reserve)),
                 )
-                .service(web::scope("/spot").route("", web::get().to(spot::handlers::get_spot))),
+                .service(web::scope("/spot").route("", web::get().to(spot::handlers::get_spot)))
+                .service(
+                    web::scope("/radar")
+                        .route("/frames", web::get().to(radar::handlers::frames))
+                        .route("/forecast", web::get().to(radar::handlers::forecast))
+                        .route("/wms", web::get().to(radar::handlers::wms)),
+                ),
         )
         .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi))
         .service({
@@ -275,6 +289,8 @@ pub fn create_test_app_state_with(settings: Settings) -> Arc<AppState> {
         solis_cache: Cache::new(std::time::Duration::from_secs(300)),
         pv_cache: Cache::new(std::time::Duration::from_secs(60)),
         spot_cache: Cache::new(std::time::Duration::from_secs(600)),
+        radar_frames_cache: Cache::new(std::time::Duration::from_secs(60)),
+        precip_forecast_cache: Cache::new(std::time::Duration::from_secs(1800)),
         hue_events_tx,
         storage,
     })
@@ -315,6 +331,8 @@ pub async fn run_server() -> std::io::Result<()> {
         solis_cache: Cache::new(std::time::Duration::from_secs(300)),
         pv_cache: Cache::new(std::time::Duration::from_secs(60)),
         spot_cache: Cache::new(std::time::Duration::from_secs(600)),
+        radar_frames_cache: Cache::new(std::time::Duration::from_secs(60)),
+        precip_forecast_cache: Cache::new(std::time::Duration::from_secs(1800)),
         hue_events_tx: hue_events_tx.clone(),
         storage,
     });
