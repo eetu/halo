@@ -12,6 +12,6 @@ fi
 
 if echo "$STAGED" | grep -q "^backend/"; then
   echo "Running backend lint..."
-  (cd "$ROOT/backend" && cargo fmt --check)
-  (cd "$ROOT/backend" && cargo clippy -- -D warnings)
+  (cd "$ROOT/backend" && cargo fmt --all -- --check)
+  (cd "$ROOT/backend" && cargo clippy --workspace --all-targets -- -D warnings)
 fi

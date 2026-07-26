@@ -1,9 +1,19 @@
+# Run `bacon` (TUI) for local work, or `bacon --headless -j run` (what the root
+# `just dev` recipe invokes) to stream logs into the composed dev output. Both
+# auto-reload on source + .env changes; the binary loads backend/.env via
+# dotenvy, and watching .env restarts when that changes too.
 default_job = "run"
 
+[jobs.check]
+command = ["cargo", "check", "--color", "always"]
+need_stdout = false
+
 [jobs.run]
-command = ["cargo", "run"]
+command = ["cargo", "run", "--color", "always"]
 watch = ["src", ".env"]
 default_watch = true
 need_stdout = true
+allow_warnings = true
+background = true
 on_change_strategy = "kill_then_restart"
 apply_gitignore = false

@@ -38,8 +38,15 @@ updates:
           - "minor"
           - "patch"
 
-  # github-actions only honours `default-days` — the semver-* keys silently
-  # break parsing for this ecosystem, so they're omitted.
+  # docker + github-actions only honour `default-days` — the semver-* keys
+  # silently break parsing for these ecosystems, so they're omitted.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
