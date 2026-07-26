@@ -9,7 +9,9 @@ siblings [chat](../chat), [scribe](../scribe), [ocular](../ocular),
 
 ```
 backend/         actix-web 4 — Hue/FMI/SolisCloud clients, SQLite (WAL), polling loops
-frontend/        Vite + React 19 + Emotion + TanStack Router (file-based)
+frontend/        Vite + React 19 + Emotion; views are switched by App.tsx state,
+                 not a router
+justfile         task runner — `just dev` runs backend (bacon) + frontend together
 scripts/         refresh-pv-forecast.sh (cron-driven PV upsert) + misc
 documentation/   design notes
 .claude/skills/  halo-app-design skill (visual language, brand)
@@ -32,11 +34,25 @@ Per-area instructions in `backend/CLAUDE.md` and `frontend/CLAUDE.md`.
   disabled).
 - **Hue events.** `GET /api/hue/events` is an SSE stream off a broadcast channel
   — live bridge-state pushes, not polling.
+- **Installable + touch-first.** The SPA ships a web manifest and a full icon set
+  (`frontend/scripts/gen-icons.sh` regenerates the PNGs from `favicon.svg` —
+  rerun and commit after editing it). The layout assumes `viewport-fit=cover`:
+  `#root` is the scroll container and pads off `env(safe-area-inset-*)`, and
+  height is `100vh` when installed (`html.standalone`, set in `main.tsx`) vs
+  `100dvh` in a tab — iOS resolves `100dvh` short at cold start in a PWA.
+- **Stale-tab guard.** Frontend and backend ship in one image, so a deploy
+  replaces both. `vite.config.ts` emits `version.json` holding the baked
+  `VITE_HALO_IMAGE_TAG`; `useDeployReload` polls it every 60 s and reloads when
+  it differs. Keyed off the image tag, not a semver — a `:main` rebuild never
+  bumps a semver.
 
 ## Working on this repo
 
-- Backend `:3000` (`PORT`); needs a `.env` with at least `HUE_BRIDGE_ADDRESS` /
-  `HUE_BRIDGE_USER` (pair via `POST /api/hue/pair`). Run: `cargo run -p halo-backend`.
+- `just dev` runs both halves together (backend headless under bacon + Vite) and
+  tears them down on one Ctrl-C. `just --list` for the rest.
+- Backend `:3000` (`PORT`); needs `backend/.env` with at least
+  `HUE_BRIDGE_ADDRESS` / `HUE_BRIDGE_USER` (pair via `POST /api/hue/pair`).
+  Alone: `cd backend && bacon` (or `cargo run`).
 - Frontend dev `:5173` (`yarn dev`); Vite proxies `/api`, `/hue/events`,
   `/status` to `:3000`.
 - Key env: `SOLIS_KEY_ID/SECRET/STATION_ID`, `TOMORROW_IO_API_KEY` (fallback
@@ -47,7 +63,9 @@ Per-area instructions in `backend/CLAUDE.md` and `frontend/CLAUDE.md`.
 
 - Authentication / per-user data
 - Shared/team dashboards, admin UI
-- Mobile/native app (web only, touch-friendly)
+- A native app — but the web UI is touch-first and installable (see
+  "Installable + touch-first"); phones are a supported target, not an
+  afterthought
 - Non-Hue smart-home integrations
 
 If a feature crosses into those areas, raise it before implementing.
