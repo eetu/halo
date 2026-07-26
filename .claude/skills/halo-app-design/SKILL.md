@@ -52,4 +52,4 @@ talking. Optional warm/cool weather hues alongside the accent when data demands.
 | Device | wall-mounted touch panel — no hover, big targets/numbers |
 | Density | data-dense (clock, energy charts, Hue cards) |
 | Motion | drawer unfold (150ms), colon pulse each second, breathing lit bulbs, energy-flow stroke scroll, eased counters |
-| Icons | `lucide-react`, inline per-icon import, `currentColor` (migrated off Material Icons) |
+| Icons | `lucide-react`, inline per-icon import, `currentColor` — **migration in progress**: 5 files done, ~12 still render Material Icons through `components/Icon.tsx` (and `index.html` still loads the two Material Icons stylesheets). New code uses lucide; convert the Material call sites you touch. |

@@ -11,6 +11,12 @@ declare module "@emotion/react" {
     mode: string;
     border: {
       radius: number | string;
+      radiusPill: number | string;
+    };
+    cardPadding: string;
+    durations: {
+      fast: string;
+      med: string;
     };
     fonts: {
       body: string;
@@ -30,6 +36,9 @@ declare module "@emotion/react" {
       };
       error: string;
       border: string;
+      /** Text/icon colour to place ON an accent fill — the accent is too light
+       *  for white (~2.4:1); near-black on it is ~8.9:1. Same in both themes. */
+      onAccent: string;
       activity: {
         on: string;
         onBackground: string;
@@ -68,6 +77,10 @@ const fonts = {
   display: '"Abril Fatface", "Space Grotesk", monospace',
 };
 
+const border = { radius: 6, radiusPill: 4 };
+const cardPadding = "1.5em";
+const durations = { fast: "0.15s", med: "0.5s" };
+
 const typography = {
   h1: { fontSize: "50px", fontWeight: 400, fontFamily: fonts.body },
   h2: { fontSize: "20px", fontWeight: 500, fontFamily: fonts.heading },
@@ -80,13 +93,16 @@ const typography = {
 
 export const lightTheme: Theme = {
   mode: "light",
-  border: { radius: 6 },
+  border,
+  cardPadding,
+  durations,
   fonts,
   colors: {
     body: "#f0f0f0",
     text: {
       main: "#525252",
-      muted: "#a0a0a0",
+      // AA on white (~4.5:1); was #a0a0a0 (~2.6:1, failed).
+      muted: "#767676",
       light: "#e9e9e9",
     },
     background: {
@@ -95,10 +111,10 @@ export const lightTheme: Theme = {
     },
     error: "tomato",
     border: "lightgray",
+    onAccent: "#1a1a1a",
     activity: {
       on: "#f78f08",
-      onBackground:
-        "linear-gradient(153deg, rgba(255,237,207,1) 0%, rgba(255,239,171,1) 56%)",
+      onBackground: "linear-gradient(153deg, rgba(255,237,207,1) 0%, rgba(255,239,171,1) 56%)",
       onSoft: "rgba(247, 143, 8, 0.10)",
       offBackground: "#d9d9d9",
     },
@@ -121,26 +137,33 @@ export const lightTheme: Theme = {
 
 export const darkTheme: Theme = {
   mode: "dark",
-  border: { radius: 6 },
+  border,
+  cardPadding,
+  durations,
   fonts,
   colors: {
     body: "#0f0f0f",
     text: {
-      main: "#d6d6d6",
-      muted: "#8a8a8a",
-      light: "#646464",
+      main: "#ededed",
+      muted: "#9c9c9c",
+      light: "#6f6f6f",
     },
     background: {
       main: "#252525",
       light: "#1c1c1c",
     },
-    error: "pink",
-    border: "#1f1f1f",
+    // A cleaner error tint than `pink`, brighter on the near-black body.
+    error: "#ff8a8a",
+    // Visible hairline. #1f1f1f sat between the body (#0f0f0f) and the surfaces
+    // (#1c1c1c/#252525) with almost no separation, so dividers and outlined
+    // controls vanished into the dark field.
+    border: "#3a3a3a",
+    onAccent: "#1a1a1a",
     activity: {
       on: "#f78f08",
       onBackground: "rgba(247, 143, 8, 0.2)",
       onSoft: "rgba(247, 143, 8, 0.20)",
-      offBackground: "#404040",
+      offBackground: "#4a4a4a",
     },
     connected: "#4caf50",
     disconnected: "#f44336",

@@ -69,11 +69,8 @@ const Reserve: React.FC<{ className?: string }> = ({ className }) => {
   // Header totals stay lifetime (from the API); the chart shows a recent window
   // so it stays legible on a narrow phone as months accumulate.
   const allPoints = data?.points ?? [];
-  const points =
-    range.months === Infinity ? allPoints : allPoints.slice(-range.months);
-  const labels = points.map((p) =>
-    format(new Date(p.bucketStart), "LLL yy", { locale: fi }),
-  );
+  const points = range.months === Infinity ? allPoints : allPoints.slice(-range.months);
+  const labels = points.map((p) => format(new Date(p.bucketStart), "LLL yy", { locale: fi }));
   const tickColor = theme.colors.text.muted;
 
   // One bar = total reserve income, split at the fee threshold: the grey base is
@@ -176,18 +173,13 @@ const Reserve: React.FC<{ className?: string }> = ({ className }) => {
           flexWrap: "wrap",
         }}
       >
-        <div css={{ fontFamily: theme.fonts.heading, fontSize: 16 }}>
-          reservimarkkina
-        </div>
+        <div css={{ fontFamily: theme.fonts.heading, fontSize: 16 }}>reservimarkkina</div>
         {data && (
           <span
             css={{
               fontFamily: theme.fonts.heading,
               fontSize: 20,
-              color:
-                data.totalPayout > 0
-                  ? theme.colors.connected
-                  : theme.colors.text.main,
+              color: data.totalPayout > 0 ? theme.colors.connected : theme.colors.text.main,
             }}
           >
             {eur(data.totalPayout)}
@@ -217,9 +209,7 @@ const Reserve: React.FC<{ className?: string }> = ({ className }) => {
                   backgroundColor: active
                     ? theme.colors.activity.onSoft
                     : theme.colors.background.main,
-                  color: active
-                    ? theme.colors.activity.on
-                    : theme.colors.text.main,
+                  color: active ? theme.colors.activity.on : theme.colors.text.main,
                   ...theme.typography.body2,
                   transition: "all 0.15s",
                 }}
@@ -238,21 +228,14 @@ const Reserve: React.FC<{ className?: string }> = ({ className }) => {
         ) : points.length === 0 ? (
           <Centered color={tickColor}>Ei reservidataa</Centered>
         ) : (
-          <Chart<"bar" | "line", number[], string>
-            type="bar"
-            data={chartData}
-            options={options}
-          />
+          <Chart<"bar" | "line", number[], string> type="bar" data={chartData} options={options} />
         )}
       </div>
     </div>
   );
 };
 
-const Centered: React.FC<{ color: string; children: React.ReactNode }> = ({
-  color,
-  children,
-}) => (
+const Centered: React.FC<{ color: string; children: React.ReactNode }> = ({ color, children }) => (
   <div
     css={{
       display: "flex",

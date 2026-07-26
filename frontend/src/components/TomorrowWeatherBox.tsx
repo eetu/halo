@@ -52,24 +52,16 @@ type TomorrowWeatherBoxProps = {
   className?: string;
 };
 
-const TomorrowWeatherBox: React.FC<TomorrowWeatherBoxProps> = ({
-  className,
-}) => {
-  const { data } = useSWR<TomorrowWeatherData>(
-    api("/api/weather/tomorrow"),
-    fetcher,
-    {
-      refreshInterval: 3600000,
-      refreshWhenHidden: true,
-    },
-  );
+const TomorrowWeatherBox: React.FC<TomorrowWeatherBoxProps> = ({ className }) => {
+  const { data } = useSWR<TomorrowWeatherData>(api("/api/weather/tomorrow"), fetcher, {
+    refreshInterval: 3600000,
+    refreshWhenHidden: true,
+  });
 
   const theme = useTheme();
 
-  const weather = data?.data.timelines.find((t) => t.timestep === "current")
-    ?.intervals[0];
-  const daily =
-    data?.data.timelines.find((t) => t.timestep === "1d")?.intervals ?? [];
+  const weather = data?.data.timelines.find((t) => t.timestep === "current")?.intervals[0];
+  const daily = data?.data.timelines.find((t) => t.timestep === "1d")?.intervals ?? [];
   const today = daily[0];
   const hourly = data?.data.timelines.find((t) => t.timestep === "1h");
   const alerts: { code: number; message: string }[] = [];
@@ -186,8 +178,7 @@ const TomorrowWeatherBox: React.FC<TomorrowWeatherBoxProps> = ({
               marginLeft: "25px",
             }}
           >
-            {(today.values.rainAccumulation > 0 ||
-              today.values.snowAccumulation > 0) && (
+            {(today.values.rainAccumulation > 0 || today.values.snowAccumulation > 0) && (
               <div
                 css={{
                   display: "flex",
@@ -195,17 +186,10 @@ const TomorrowWeatherBox: React.FC<TomorrowWeatherBoxProps> = ({
                   alignItems: "center",
                 }}
               >
-                {today.values.rainAccumulation > 0 ? (
-                  <Icon>water_drop</Icon>
-                ) : (
-                  <Icon>ac_unit</Icon>
-                )}
+                {today.values.rainAccumulation > 0 ? <Icon>water_drop</Icon> : <Icon>ac_unit</Icon>}
                 <span css={{ marginLeft: 10 }}>
-                  {(
-                    today.values.rainAccumulation ||
-                    today.values.snowAccumulation
-                  ).toFixed(1)}{" "}
-                  mm ({today.values.precipitationProbabilityAvg.toFixed()}
+                  {(today.values.rainAccumulation || today.values.snowAccumulation).toFixed(1)} mm (
+                  {today.values.precipitationProbabilityAvg.toFixed()}
                   %)
                 </span>
               </div>
@@ -218,13 +202,8 @@ const TomorrowWeatherBox: React.FC<TomorrowWeatherBoxProps> = ({
               }}
             >
               <Icon>air</Icon>
-              <span css={{ marginLeft: 10 }}>
-                {weather.values.windSpeed.toFixed(1)} m/s
-              </span>
-              <Arrow
-                css={{ marginLeft: 5 }}
-                deg={weather.values.windDirection + 180}
-              />
+              <span css={{ marginLeft: 10 }}>{weather.values.windSpeed.toFixed(1)} m/s</span>
+              <Arrow css={{ marginLeft: 5 }} deg={weather.values.windDirection + 180} />
             </div>
           </div>
         </div>

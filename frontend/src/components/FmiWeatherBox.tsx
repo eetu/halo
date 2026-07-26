@@ -11,10 +11,7 @@ import useScreenshotMode from "../hooks/useScreenshotMode";
 import { PvForecast } from "../types/pv";
 import { WeatherData } from "../types/weather/fmi";
 import { weatherBorderColor } from "../weather/asciiSky";
-import {
-  getFmiWeatherDescription,
-  getFmiWeatherIcon,
-} from "../weather/fmi/icons";
+import { getFmiWeatherDescription, getFmiWeatherIcon } from "../weather/fmi/icons";
 import { getFmiTemperatureSegments } from "../weather/fmi/utils";
 import Arrow from "./Arrow";
 import Box from "./Box";
@@ -23,20 +20,15 @@ import LocationForm from "./LocationForm";
 import OfflineState from "./OfflineState";
 import WeatherAsciiBackground from "./WeatherAsciiBackground";
 import WeatherChart from "./WeatherChart";
-import WeatherTestControls, {
-  type WeatherTestCase,
-} from "./WeatherTestControls";
+import WeatherTestControls, { type WeatherTestCase } from "./WeatherTestControls";
 
 type WeatherIconProps = {
   weatherSymbol: number;
   isNight: boolean;
 } & LucideProps;
 
-const WeatherIcon: React.FC<WeatherIconProps> = ({
-  weatherSymbol,
-  isNight,
-  ...props
-}) => createElement(getFmiWeatherIcon(weatherSymbol, isNight), props);
+const WeatherIcon: React.FC<WeatherIconProps> = ({ weatherSymbol, isNight, ...props }) =>
+  createElement(getFmiWeatherIcon(weatherSymbol, isNight), props);
 
 type WeatherBoxProps = {
   className?: string;
@@ -61,8 +53,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
 
   const { data: pvForecast } = useSWR<PvForecast>(
     api("/api/pv/forecast"),
-    (url: string) =>
-      fetch(url).then((res) => (res.ok ? res.json() : undefined)),
+    (url: string) => fetch(url).then((res) => (res.ok ? res.json() : undefined)),
     {
       refreshInterval: 3600000,
       refreshWhenHidden: true,
@@ -148,23 +139,16 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
 
   const segments = getFmiTemperatureSegments(hourly);
 
-  const realIsNight =
-    now < new Date(current.sunrise) || now > new Date(current.sunset);
+  const realIsNight = now < new Date(current.sunrise) || now > new Date(current.sunset);
   // In demo mode the test controls can override the rendered weather so every
   // animation kind is reachable; symbol -1 ("live") falls back to the real data.
   const override = testCase && testCase.symbol >= 0;
   const weatherSymbol = override ? testCase.symbol : current.weatherSymbol;
   const isNight = override ? testCase.isNight : realIsNight;
   const precipitation =
-    override && testCase.precip !== undefined
-      ? testCase.precip
-      : current.precipitation1h;
+    override && testCase.precip !== undefined ? testCase.precip : current.precipitation1h;
   const title = getFmiWeatherDescription(weatherSymbol);
-  const borderColor = weatherBorderColor(
-    weatherSymbol,
-    isNight,
-    theme.mode === "dark",
-  );
+  const borderColor = weatherBorderColor(weatherSymbol, isNight, theme.mode === "dark");
 
   return (
     <Box
@@ -191,12 +175,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
         </div>
       }
     >
-      {demo && (
-        <WeatherTestControls
-          activeId={testCase?.id ?? "live"}
-          onSelect={setTestCase}
-        />
-      )}
+      {demo && <WeatherTestControls activeId={testCase?.id ?? "live"} onSelect={setTestCase} />}
       <div
         css={{
           position: "relative",
@@ -226,10 +205,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
             {demo ? "" : (location?.displayName ?? "")}
           </span>
           {isStale && (
-            <Icon
-              size={14}
-              css={{ color: theme.colors.text.muted, opacity: 0.7 }}
-            >
+            <Icon size={14} css={{ color: theme.colors.text.muted, opacity: 0.7 }}>
               cloud_off
             </Icon>
           )}
@@ -294,9 +270,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
                 ) : (
                   <Icon>water_drop</Icon>
                 )}
-                <span css={{ marginLeft: 10 }}>
-                  {today.precipitation.toFixed(1)} mm
-                </span>
+                <span css={{ marginLeft: 10 }}>{today.precipitation.toFixed(1)} mm</span>
               </div>
             )}
             <div
@@ -307,13 +281,8 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
               }}
             >
               <Icon>air</Icon>
-              <span css={{ marginLeft: 10 }}>
-                {current.windSpeed.toFixed(1)} m/s
-              </span>
-              <Arrow
-                css={{ marginLeft: 5 }}
-                deg={current.windDirection + 180}
-              />
+              <span css={{ marginLeft: 10 }}>{current.windSpeed.toFixed(1)} m/s</span>
+              <Arrow css={{ marginLeft: 5 }} deg={current.windDirection + 180} />
             </div>
           </div>
         </div>

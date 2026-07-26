@@ -67,31 +67,20 @@ const applyEvent = (data: Response, event: HueLiveEvent): Response => {
       return {
         ...data,
         sensors: data.sensors.map((s) =>
-          s.deviceId === event.deviceId
-            ? { ...s, motionEnabled: event.enabled }
-            : s,
+          s.deviceId === event.deviceId ? { ...s, motionEnabled: event.enabled } : s,
         ),
       };
     case "connectivity":
       return {
         ...data,
         sensors: data.sensors.map((s) =>
-          s.deviceId === event.deviceId
-            ? { ...s, connected: event.connected }
-            : s,
+          s.deviceId === event.deviceId ? { ...s, connected: event.connected } : s,
         ),
       };
   }
 };
 
-type View =
-  | "temperature"
-  | "energy"
-  | "lights"
-  | "motion"
-  | "radar"
-  | "history"
-  | "settings";
+type View = "temperature" | "energy" | "lights" | "motion" | "radar" | "history" | "settings";
 
 const VIEWS: { id: View; icon: string }[] = [
   { id: "temperature", icon: "thermostat" },
@@ -163,9 +152,7 @@ const App = () => {
   }, [sensors]);
 
   const outsideTemp = Math.min(
-    ...outside
-      .map((s) => s.temperature)
-      .filter((t): t is number => t !== undefined),
+    ...outside.map((s) => s.temperature).filter((t): t is number => t !== undefined),
   );
 
   const theme = useTheme();
@@ -248,9 +235,7 @@ const App = () => {
                     cursor: "pointer",
                     backgroundColor: "transparent",
                     border: "none",
-                    color: active
-                      ? theme.colors.activity.on
-                      : theme.colors.text.muted,
+                    color: active ? theme.colors.activity.on : theme.colors.text.muted,
                     padding: "6px",
                     transition: "color 0.15s ease",
                   }}
@@ -360,9 +345,7 @@ const App = () => {
               </Suspense>
             )}
 
-            {view === "history" && (
-              <History css={{ gridColumn: "1 / span 4" }} />
-            )}
+            {view === "history" && <History css={{ gridColumn: "1 / span 4" }} />}
 
             {view === "settings" && (
               <div

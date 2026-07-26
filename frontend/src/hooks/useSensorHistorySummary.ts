@@ -28,14 +28,10 @@ const empty: Summary = {
 };
 
 const useSensorHistorySummary = (sensors: Sensor[]): Summary => {
-  const { data } = useSWR<Reading[]>(
-    api(`/api/history/sensors?hours=${HOURS}`),
-    fetcher,
-    {
-      refreshInterval: 300_000,
-      refreshWhenHidden: true,
-    },
-  );
+  const { data } = useSWR<Reading[]>(api(`/api/history/sensors?hours=${HOURS}`), fetcher, {
+    refreshInterval: 300_000,
+    refreshWhenHidden: true,
+  });
 
   const ids = sensors
     .filter((s) => s.enabled && s.connected)
@@ -49,10 +45,7 @@ const useSensorHistorySummary = (sensors: Sensor[]): Summary => {
     const filtered = data.filter((r) => idSet.has(r.sensorId));
     if (filtered.length === 0) return empty;
 
-    const latest = filtered.reduce(
-      (acc, r) => Math.max(acc, new Date(r.recordedAt).getTime()),
-      0,
-    );
+    const latest = filtered.reduce((acc, r) => Math.max(acc, new Date(r.recordedAt).getTime()), 0);
     const windowMs = HOURS * 3600_000;
     const bucketMs = windowMs / BUCKETS;
     const windowStart = latest - windowMs;
@@ -88,8 +81,7 @@ const useSensorHistorySummary = (sensors: Sensor[]): Summary => {
       arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0) / arr.length;
     const recentAvg = avg(recent);
     const priorAvg = avg(prior);
-    const diff1h =
-      recentAvg !== null && priorAvg !== null ? recentAvg - priorAvg : null;
+    const diff1h = recentAvg !== null && priorAvg !== null ? recentAvg - priorAvg : null;
 
     return { points, minTemp, maxTemp, diff1h };
   }, [data, ids]);

@@ -2533,6 +2533,45 @@ __metadata:
   languageName: node
   linkType: hard
 
+"halo-frontend@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "halo-frontend@workspace:."
+  dependencies:
+    "@anarkisti/eslint-config": "npm:^1.1.0"
+    "@emotion/react": "npm:^11.14.0"
+    "@floating-ui/react": "npm:^0.27.20"
+    "@types/leaflet": "npm:^1.9.21"
+    "@types/react": "npm:^19.2.17"
+    "@types/react-dom": "npm:^19.2.3"
+    "@vitejs/plugin-react": "npm:^6.0.3"
+    "@vitest/browser-playwright": "npm:^4.1.10"
+    babel-plugin-react-compiler: "npm:^1.0.0"
+    chart.js: "npm:^4.5.1"
+    chartjs-adapter-date-fns: "npm:^3.0.0"
+    chartjs-plugin-datalabels: "npm:^2.2.0"
+    classnames: "npm:^2.5.1"
+    date-fns: "npm:^4.4.0"
+    eslint: "npm:^10.7.0"
+    leaflet: "npm:^1.9.4"
+    lucide-react: "npm:^1.25.0"
+    playwright: "npm:^1.61.1"
+    prettier: "npm:^3.9.5"
+    react: "npm:^19.2.7"
+    react-chartjs-2: "npm:^5.3.1"
+    react-dom: "npm:^19.2.7"
+    swr: "npm:^2.4.2"
+    typescript: "npm:^6.0.3"
+    typescript-eslint: "npm:^8.64.0"
+    unplugin-auto-import: "npm:^21.0.0"
+    usehooks-ts: "npm:^3.1.1"
+    vite: "npm:^8.1.5"
+    vite-plugin-qrcode: "npm:^0.4.1"
+    vite-tsconfig-paths: "npm:^6.1.1"
+    vitest: "npm:^4.1.10"
+    vitest-browser-react: "npm:^2.2.0"
+  languageName: unknown
+  linkType: soft
+
 "hasown@npm:^2.0.2":
   version: 2.0.2
   resolution: "hasown@npm:2.0.2"
@@ -4432,45 +4471,6 @@ __metadata:
   checksum: 10/7278baa0723097a181566a46050f8218bb2c57c559cb68494709b6eb9a9eb332bfbc8fb3638857300eeaedbae37343e131e323da9ebda157e5f9ccfc48eefe02
   languageName: node
   linkType: hard
-
-"vite_react_template@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "vite_react_template@workspace:."
-  dependencies:
-    "@anarkisti/eslint-config": "npm:^1.1.0"
-    "@emotion/react": "npm:^11.14.0"
-    "@floating-ui/react": "npm:^0.27.20"
-    "@types/leaflet": "npm:^1.9.21"
-    "@types/react": "npm:^19.2.17"
-    "@types/react-dom": "npm:^19.2.3"
-    "@vitejs/plugin-react": "npm:^6.0.3"
-    "@vitest/browser-playwright": "npm:^4.1.10"
-    babel-plugin-react-compiler: "npm:^1.0.0"
-    chart.js: "npm:^4.5.1"
-    chartjs-adapter-date-fns: "npm:^3.0.0"
-    chartjs-plugin-datalabels: "npm:^2.2.0"
-    classnames: "npm:^2.5.1"
-    date-fns: "npm:^4.4.0"
-    eslint: "npm:^10.7.0"
-    leaflet: "npm:^1.9.4"
-    lucide-react: "npm:^1.25.0"
-    playwright: "npm:^1.61.1"
-    prettier: "npm:^3.9.5"
-    react: "npm:^19.2.7"
-    react-chartjs-2: "npm:^5.3.1"
-    react-dom: "npm:^19.2.7"
-    swr: "npm:^2.4.2"
-    typescript: "npm:^6.0.3"
-    typescript-eslint: "npm:^8.64.0"
-    unplugin-auto-import: "npm:^21.0.0"
-    usehooks-ts: "npm:^3.1.1"
-    vite: "npm:^8.1.5"
-    vite-plugin-qrcode: "npm:^0.4.1"
-    vite-tsconfig-paths: "npm:^6.1.1"
-    vitest: "npm:^4.1.10"
-    vitest-browser-react: "npm:^2.2.0"
-  languageName: unknown
-  linkType: soft
 
 "vitest-browser-react@npm:^2.2.0":
   version: 2.2.0

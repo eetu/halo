@@ -8,10 +8,7 @@ type TrendIndicatorProps = {
   size?: number;
 };
 
-const TrendIndicator: React.FC<TrendIndicatorProps> = ({
-  trend,
-  size = 24,
-}) => {
+const TrendIndicator: React.FC<TrendIndicatorProps> = ({ trend, size = 24 }) => {
   const theme = useTheme();
 
   if (trend === "stable") return null;

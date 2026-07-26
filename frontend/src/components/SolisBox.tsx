@@ -16,15 +16,11 @@ type SolisBoxProps = {
 const SolisBox: React.FC<SolisBoxProps> = ({ className }) => {
   const theme = useTheme();
 
-  const { data, error } = useSWR<SolisData, HttpError>(
-    api("/api/solis"),
-    jsonFetcher,
-    {
-      refreshInterval: 300_000,
-      refreshWhenHidden: true,
-      shouldRetryOnError: false,
-    },
-  );
+  const { data, error } = useSWR<SolisData, HttpError>(api("/api/solis"), jsonFetcher, {
+    refreshInterval: 300_000,
+    refreshWhenHidden: true,
+    shouldRetryOnError: false,
+  });
 
   // Not configured: hide entirely.
   if (error?.status === 503) return null;
@@ -79,20 +75,11 @@ const SolisBox: React.FC<SolisBoxProps> = ({ className }) => {
               value={`${Math.max(0, data.power - data.grid_power).toFixed(1)} ${data.power_unit}`}
             />
           )}
-          <DrawerRow
-            label="Tänään"
-            value={`${data.today_energy} ${data.today_energy_unit}`}
-          />
-          <DrawerRow
-            label="Kk"
-            value={`${data.month_energy} ${data.month_energy_unit}`}
-          />
+          <DrawerRow label="Tänään" value={`${data.today_energy} ${data.today_energy_unit}`} />
+          <DrawerRow label="Kk" value={`${data.month_energy} ${data.month_energy_unit}`} />
           {data.battery_soc !== null && (
             <>
-              <DrawerRow
-                label="Akku"
-                value={`${Math.round(data.battery_soc)}%`}
-              />
+              <DrawerRow label="Akku" value={`${Math.round(data.battery_soc)}%`} />
               {data.battery_power !== null && data.battery_power_unit && (
                 <DrawerRow
                   label={`${batteryLabel}`}
@@ -192,9 +179,7 @@ const SolisBox: React.FC<SolisBoxProps> = ({ className }) => {
               {`akku ${Math.round(data.battery_soc)} %`}
             </span>
           )}
-          {batteryLabel && batteryLabel !== "lepotila" && (
-            <span>{batteryLabel}</span>
-          )}
+          {batteryLabel && batteryLabel !== "lepotila" && <span>{batteryLabel}</span>}
         </div>
       </div>
     </Box>

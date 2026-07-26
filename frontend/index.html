@@ -3,13 +3,24 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- viewport-fit=cover: edge-to-edge under the notch/home-indicator AND the
+       thing that makes env(safe-area-inset-*) resolve non-zero. Required for
+       the installed-PWA full-height layout in Root.tsx. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="halo" />
+  <!-- black-translucent overlays the status bar → #root pads with
+       env(safe-area-inset-top). -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- Keep in sync with themes.ts colors.body (light/dark). -->
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f0f0f0" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f0f0f" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="alternate icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=DM+Serif+Display&family=Instrument+Serif&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />

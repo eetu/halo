@@ -94,8 +94,7 @@ const History: React.FC<HistoryProps> = ({ className }) => {
   useEffect(() => {
     const controller = new AbortController();
     const params = new URLSearchParams({ hours: String(range.hours) });
-    if (range.maxPoints !== undefined)
-      params.set("max_points", String(range.maxPoints));
+    if (range.maxPoints !== undefined) params.set("max_points", String(range.maxPoints));
     fetch(api(`/api/history/sensors?${params}`), { signal: controller.signal })
       .then((r) => r.json())
       .then((data: SensorReading[]) => {
@@ -247,9 +246,7 @@ const History: React.FC<HistoryProps> = ({ className }) => {
                 backgroundColor: active
                   ? theme.colors.activity.onSoft
                   : theme.colors.background.main,
-                color: active
-                  ? theme.colors.activity.on
-                  : theme.colors.text.main,
+                color: active ? theme.colors.activity.on : theme.colors.text.main,
                 ...theme.typography.body2,
                 transition: "all 0.15s",
               }}

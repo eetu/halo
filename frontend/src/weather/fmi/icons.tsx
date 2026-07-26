@@ -48,10 +48,7 @@ export const fmiWeatherIconMap: Record<number, WeatherIconMapping> = {
   92: { icon: CloudFog, description: "Sumua" },
 };
 
-export const getFmiWeatherIcon = (
-  weatherSymbol: number,
-  isNight?: boolean,
-): LucideIcon => {
+export const getFmiWeatherIcon = (weatherSymbol: number, isNight?: boolean): LucideIcon => {
   const mapping = fmiWeatherIconMap[weatherSymbol];
 
   if (!mapping) {

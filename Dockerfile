@@ -11,9 +11,11 @@ WORKDIR /app
 COPY frontend/package.json frontend/yarn.lock frontend/.yarnrc.yml* ./
 # .yarnrc.yml pins yarnPath to a committed release; copy it in before install
 COPY frontend/.yarn/ ./.yarn/
-RUN corepack enable && yarn install --immutable --network-timeout 1000000
+# Invoke the vendored yarn through node — no corepack (node 25+ dropped the
+# bundle), so this stage stays independent of the node version.
+RUN node .yarn/releases/yarn-*.cjs install --immutable --network-timeout 1000000
 COPY frontend/ .
-RUN yarn build
+RUN node .yarn/releases/yarn-*.cjs build
 
 # --- Stage 2: Build backend dependencies (native, cross-compiled) ---
 FROM --platform=$BUILDPLATFORM rust:1-alpine AS backend-deps

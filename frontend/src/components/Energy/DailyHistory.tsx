@@ -152,8 +152,7 @@ const DailyHistory: React.FC<{ className?: string }> = ({ className }) => {
         },
       },
       tooltip: {
-        itemSort: (a, b) =>
-          Math.abs(b.parsed.y ?? 0) - Math.abs(a.parsed.y ?? 0),
+        itemSort: (a, b) => Math.abs(b.parsed.y ?? 0) - Math.abs(a.parsed.y ?? 0),
         callbacks: {
           label: (ctx) => {
             const v = ctx.parsed.y;
@@ -250,9 +249,7 @@ const DailyHistory: React.FC<{ className?: string }> = ({ className }) => {
                   backgroundColor: active
                     ? theme.colors.activity.onSoft
                     : theme.colors.background.main,
-                  color: active
-                    ? theme.colors.activity.on
-                    : theme.colors.text.main,
+                  color: active ? theme.colors.activity.on : theme.colors.text.main,
                   ...theme.typography.body2,
                   transition: "all 0.15s",
                 }}

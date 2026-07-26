@@ -7,12 +7,7 @@ type SparklineProps = {
   className?: string;
 };
 
-const Sparkline: FC<SparklineProps> = ({
-  points,
-  color,
-  height = 50,
-  className,
-}) => {
+const Sparkline: FC<SparklineProps> = ({ points, color, height = 50, className }) => {
   if (points.length < 2) return null;
 
   const minY = Math.min(...points);
@@ -23,11 +18,7 @@ const Sparkline: FC<SparklineProps> = ({
   const padY = 2;
 
   const coords = points.map(
-    (y, i) =>
-      [
-        i * stepX,
-        height - padY - ((y - minY) / range) * (height - 2 * padY),
-      ] as const,
+    (y, i) => [i * stepX, height - padY - ((y - minY) / range) * (height - 2 * padY)] as const,
   );
   const linePath = coords
     .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`)

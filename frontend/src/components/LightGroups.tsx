@@ -16,8 +16,7 @@ const LONG_PRESS_MS = 350;
 const MOVE_CANCEL_PX = 8;
 const LIVE_THROTTLE_MS = 200;
 
-const clamp = (v: number, lo: number, hi: number) =>
-  Math.min(hi, Math.max(lo, v));
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 type LightGroupsProps = {
   groups: Group[];
@@ -59,9 +58,7 @@ const LightGroup: FC<LightGroupProps> = ({ group }) => {
   const [isOn, setIsOn] = useState(group.state.on);
   const [prevOn, setPrevOn] = useState(group.state.on);
   const [brightness, setBrightness] = useState(group.state.brightness ?? 100);
-  const [prevBrightness, setPrevBrightness] = useState(
-    group.state.brightness ?? 100,
-  );
+  const [prevBrightness, setPrevBrightness] = useState(group.state.brightness ?? 100);
   const [dimming, setDimming] = useState(false);
 
   // Sync from props (live SSE updates).
@@ -185,11 +182,9 @@ const LightGroup: FC<LightGroupProps> = ({ group }) => {
       skipClickRef.current = false;
       return;
     }
-    fetch(api(`/api/hue/toggleGroup/${group.id}`), { method: "POST" }).then(
-      (res) => {
-        if (res.status === 200) setIsOn((prev) => !prev);
-      },
-    );
+    fetch(api(`/api/hue/toggleGroup/${group.id}`), { method: "POST" }).then((res) => {
+      if (res.status === 200) setIsOn((prev) => !prev);
+    });
   }, [group.id]);
 
   const theme = useTheme();
@@ -249,9 +244,7 @@ const LightGroup: FC<LightGroupProps> = ({ group }) => {
           justifyContent: "center",
           alignItems: "center",
           borderRadius: "100%",
-          backgroundColor: isOn
-            ? "rgba(247, 143, 8, 0.18)"
-            : "rgba(0, 0, 0, 0.06)",
+          backgroundColor: isOn ? "rgba(247, 143, 8, 0.18)" : "rgba(0, 0, 0, 0.06)",
           height: 42,
           width: 42,
           transition: "background 0.4s ease",

@@ -68,9 +68,7 @@ const Motion: FC<MotionProps> = ({ className, sensors = [], error }) => {
           <div
             key={s.id}
             onClick={() => toggle(s.deviceId)}
-            aria-label={
-              enabled ? "Poista liiketunnistin käytöstä" : "Ota käyttöön"
-            }
+            aria-label={enabled ? "Poista liiketunnistin käytöstä" : "Ota käyttöön"}
             css={{
               display: "table-row",
               opacity: enabled ? 1 : 0.5,
@@ -95,12 +93,8 @@ const Motion: FC<MotionProps> = ({ className, sensors = [], error }) => {
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  backgroundColor: active
-                    ? theme.colors.activity.on
-                    : theme.colors.text.muted,
-                  animation: active
-                    ? `${motionPulse} 1.8s ease-out infinite`
-                    : "none",
+                  backgroundColor: active ? theme.colors.activity.on : theme.colors.text.muted,
+                  animation: active ? `${motionPulse} 1.8s ease-out infinite` : "none",
                 }}
               />
             </span>
@@ -128,20 +122,14 @@ const Motion: FC<MotionProps> = ({ className, sensors = [], error }) => {
                 display: "table-cell",
                 padding: "8px 4px",
                 verticalAlign: "middle",
-                color: active
-                  ? theme.colors.activity.on
-                  : theme.colors.text.muted,
+                color: active ? theme.colors.activity.on : theme.colors.text.muted,
                 fontWeight: active ? 600 : 400,
                 textAlign: "right",
                 whiteSpace: "nowrap",
                 transition: "color 0.3s ease",
               }}
             >
-              {!enabled
-                ? "pois käytöstä"
-                : s.motion
-                  ? "liikettä"
-                  : "ei liikettä"}
+              {!enabled ? "pois käytöstä" : s.motion ? "liikettä" : "ei liikettä"}
             </span>
             <span
               css={{

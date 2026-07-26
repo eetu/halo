@@ -30,10 +30,7 @@ type WeatherTestControlsProps = {
   onSelect: (testCase: WeatherTestCase) => void;
 };
 
-const WeatherTestControls: React.FC<WeatherTestControlsProps> = ({
-  activeId,
-  onSelect,
-}) => {
+const WeatherTestControls: React.FC<WeatherTestControlsProps> = ({ activeId, onSelect }) => {
   const theme = useTheme();
 
   return (
@@ -71,12 +68,8 @@ const WeatherTestControls: React.FC<WeatherTestControlsProps> = ({
               fontFamily: theme.fonts.heading,
               fontSize: 11,
               lineHeight: 1.2,
-              color: active
-                ? theme.colors.activity.on
-                : theme.colors.text.muted,
-              backgroundColor: active
-                ? theme.colors.activity.onSoft
-                : "transparent",
+              color: active ? theme.colors.activity.on : theme.colors.text.muted,
+              backgroundColor: active ? theme.colors.activity.onSoft : "transparent",
               "&:hover": { color: theme.colors.text.main },
             }}
           >

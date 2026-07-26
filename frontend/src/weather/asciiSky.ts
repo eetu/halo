@@ -3,27 +3,16 @@
 // weather box can derive a matching divider colour without duplicating logic.
 
 export type WeatherKind =
-  | "clear-day"
-  | "clear-night"
-  | "partly-cloudy"
-  | "clouds"
-  | "rain"
-  | "snow"
-  | "thunder"
-  | "fog";
+  "clear-day" | "clear-night" | "partly-cloudy" | "clouds" | "rain" | "snow" | "thunder" | "fog";
 
 // Map an FMI WeatherSymbol3 code to a coarse animation kind. Sleet (7x/8x) is
 // folded into rain; partly-cloudy (2) gets a bluer, sunnier sky than full
 // overcast (3); everything unrecognised falls back to the clear sky for the
 // current time of day.
-export function weatherSymbolToKind(
-  symbol: number,
-  isNight: boolean,
-): WeatherKind {
+export function weatherSymbolToKind(symbol: number, isNight: boolean): WeatherKind {
   if (symbol >= 61 && symbol <= 64) return "thunder";
   if (symbol >= 41 && symbol <= 53) return "snow";
-  if ((symbol >= 21 && symbol <= 33) || (symbol >= 71 && symbol <= 83))
-    return "rain";
+  if ((symbol >= 21 && symbol <= 33) || (symbol >= 71 && symbol <= 83)) return "rain";
   if (symbol === 91 || symbol === 92) return "fog";
   if (symbol === 2) return "partly-cloudy";
   if (symbol === 3) return "clouds";

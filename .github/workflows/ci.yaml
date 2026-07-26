@@ -17,14 +17,21 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: "24"
-      - run: corepack enable
-      - run: yarn install --immutable
-      - run: yarn playwright install chromium
-      - run: yarn format
-      - run: yarn lint
-      - run: yarn test
-      - run: yarn build
+          # The pinned major lives in one place; a hardcoded literal here would
+          # silently drift from the file and the Dockerfile's node stage.
+          node-version-file: frontend/.node-version
+      # Yarn is vendored (.yarn/releases/*.cjs) and invoked via node — no
+      # corepack (node 25+ dropped the bundle).
+      - name: Frontend checks
+        run: |
+          yarn() { node .yarn/releases/yarn-*.cjs "$@"; }
+          yarn install --immutable
+          yarn playwright install chromium
+          yarn format
+          yarn lint
+          yarn typecheck
+          yarn test
+          yarn build
 
   backend:
     name: "Backend"
@@ -40,7 +47,7 @@ jobs:
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: backend
-      - run: cargo fmt --check
-      - run: cargo clippy -- -D warnings
-      - run: cargo test
-      - run: cargo build
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - run: cargo build --workspace --release

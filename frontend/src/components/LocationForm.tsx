@@ -1,12 +1,7 @@
 import { useTheme } from "@emotion/react";
 import { useCallback, useEffect, useState } from "react";
 
-import {
-  getCityName,
-  type NominatimResult,
-  reverseGeocode,
-  searchLocation,
-} from "../geo";
+import { getCityName, type NominatimResult, reverseGeocode, searchLocation } from "../geo";
 import useGeoLocation from "../hooks/useGeoLocation";
 import useLocationSettings from "../hooks/useLocationSettings";
 import useScreenshotMode from "../hooks/useScreenshotMode";
@@ -74,10 +69,7 @@ const LocationForm: React.FC<LocationFormProps> = ({ className }) => {
   const loading = searching || geo.loading;
 
   return (
-    <div
-      className={className}
-      css={{ display: "flex", flexDirection: "column", gap: "0.5em" }}
-    >
+    <div className={className} css={{ display: "flex", flexDirection: "column", gap: "0.5em" }}>
       <div
         css={{
           display: "flex",
@@ -149,9 +141,7 @@ const LocationForm: React.FC<LocationFormProps> = ({ className }) => {
       </div>
 
       {geo.error && (
-        <div css={{ color: theme.colors.error, ...theme.typography.caption }}>
-          {geo.error}
-        </div>
+        <div css={{ color: theme.colors.error, ...theme.typography.caption }}>{geo.error}</div>
       )}
 
       {results.length > 0 && (
@@ -171,10 +161,7 @@ const LocationForm: React.FC<LocationFormProps> = ({ className }) => {
               css={{
                 padding: "0.6em 0.75em",
                 border: "none",
-                borderBottom:
-                  i < results.length - 1
-                    ? `1px solid ${theme.colors.border}`
-                    : "none",
+                borderBottom: i < results.length - 1 ? `1px solid ${theme.colors.border}` : "none",
                 backgroundColor: theme.colors.background.light,
                 color: theme.colors.text.main,
                 textAlign: "left",

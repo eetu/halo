@@ -34,12 +34,7 @@ const Tooltip: React.FC<TooltipProps> = ({ className, children, content }) => {
   const dismiss = useDismiss(context);
   const role = useRole(context, { role: "tooltip" });
 
-  const { getReferenceProps, getFloatingProps } = useInteractions([
-    hover,
-    focus,
-    dismiss,
-    role,
-  ]);
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss, role]);
 
   const refProps = getReferenceProps();
   return (

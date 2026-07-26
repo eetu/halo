@@ -25,16 +25,12 @@ const integrate = (readings: SolisReading[]): Aggregates => {
   let dischargeKwh = 0;
 
   const today = new Date();
-  const todays = readings.filter((r) =>
-    isSameDay(new Date(r.recordedAt), today),
-  );
+  const todays = readings.filter((r) => isSameDay(new Date(r.recordedAt), today));
 
   for (let i = 1; i < todays.length; i++) {
     const a = todays[i - 1];
     const b = todays[i];
-    const dtH =
-      (new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()) /
-      3_600_000;
+    const dtH = (new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()) / 3_600_000;
     if (dtH <= 0 || dtH > 1) continue; // skip large gaps (>1h)
 
     const ag = a.gridPower ?? 0;
@@ -81,8 +77,7 @@ const Summary: React.FC<{ className?: string }> = ({ className }) => {
   const pvToHome = Math.max(0, pvTotal - pvToGrid - pvToBattery);
   const homeKwh = pvToHome + dischargeKwh + importKwh;
 
-  const pct = (v: number) =>
-    pvTotal > 0 ? Math.round((v / pvTotal) * 100) : 0;
+  const pct = (v: number) => (pvTotal > 0 ? Math.round((v / pvTotal) * 100) : 0);
   const homePct = pct(pvToHome);
   const batteryPct = pct(pvToBattery);
   const gridPct = pvTotal > 0 ? 100 - homePct - batteryPct : 0;
@@ -215,9 +210,7 @@ const Summary: React.FC<{ className?: string }> = ({ className }) => {
               gap: 2,
             }}
           >
-            <div css={{ fontSize: 12, color: theme.colors.text.muted }}>
-              tuotto
-            </div>
+            <div css={{ fontSize: 12, color: theme.colors.text.muted }}>tuotto</div>
             <div
               css={{
                 fontSize: 20,
@@ -323,9 +316,7 @@ const LegendRow: React.FC<{
           backgroundColor: color,
         }}
       />
-      <span css={{ color: theme.colors.text.muted, minWidth: 110 }}>
-        pv → {label}
-      </span>
+      <span css={{ color: theme.colors.text.muted, minWidth: 110 }}>pv → {label}</span>
       <span css={{ fontVariantNumeric: "tabular-nums" }}>{value}</span>
       <span
         css={{
