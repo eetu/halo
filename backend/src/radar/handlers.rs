@@ -119,33 +119,92 @@ pub async fn frames(
 /// layer points here; we forward the query string verbatim to a single fixed
 /// upstream (no open proxy) and stream the image bytes back. Tiles are cached
 /// by the browser/Leaflet, so no server-side tile cache is needed.
+///
+/// The frontend hands FMI its own colour map through `SLD_BODY` so the observed
+/// and forecast halves of the timeline share one ramp. If FMI ever rejects that —
+/// dynamic styling turned off, or a colour map it dislikes — we retry once
+/// without it: the radar then renders in FMI's palette, which is worse than
+/// halo's but far better than an empty map.
 pub async fn wms(state: web::Data<Arc<AppState>>, req: HttpRequest) -> HttpResponse {
-    let url = format!("{}?{}", state.settings.fmi_wms_base_url, req.query_string());
-
-    match state.http_client.get(&url).send().await {
-        Ok(resp) => {
-            let status =
-                StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-            let content_type = resp
-                .headers()
-                .get(reqwest::header::CONTENT_TYPE)
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("image/png")
-                .to_string();
-            match resp.bytes().await {
-                Ok(bytes) => HttpResponse::build(status)
-                    .insert_header(("Cache-Control", "public, max-age=300"))
-                    .content_type(content_type)
-                    .body(bytes),
-                Err(e) => {
-                    tracing::error!("Failed to read radar tile body: {e}");
-                    HttpResponse::BadGateway().finish()
-                }
-            }
+    let query = req.query_string();
+    if let Some(tile) = fetch_tile(&state, query).await {
+        return tile;
+    }
+    if let Some(plain) = without_sld_body(query) {
+        tracing::warn!("radar tile rejected with SLD_BODY; retrying with FMI's own style");
+        if let Some(tile) = fetch_tile(&state, &plain).await {
+            return tile;
         }
+    }
+    HttpResponse::BadGateway().finish()
+}
+
+/// `Some` only when the upstream really returned an image. A WMS `ServiceException`
+/// arrives as XML — sometimes with a 200 — so the content type is what decides.
+async fn fetch_tile(state: &AppState, query: &str) -> Option<HttpResponse> {
+    let url = format!("{}?{}", state.settings.fmi_wms_base_url, query);
+    let resp = match state.http_client.get(&url).send().await {
+        Ok(resp) => resp,
         Err(e) => {
             tracing::error!("Failed to proxy radar tile: {e}");
-            HttpResponse::BadGateway().finish()
+            return None;
         }
+    };
+    let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/png")
+        .to_string();
+    if !status.is_success() || !content_type.starts_with("image/") {
+        tracing::error!("radar tile upstream returned {status} ({content_type})");
+        return None;
+    }
+    match resp.bytes().await {
+        Ok(bytes) => Some(
+            HttpResponse::build(status)
+                .insert_header(("Cache-Control", "public, max-age=300"))
+                .content_type(content_type)
+                .body(bytes),
+        ),
+        Err(e) => {
+            tracing::error!("Failed to read radar tile body: {e}");
+            None
+        }
+    }
+}
+
+/// Strip `sld_body`/`sld` from a query string. `None` when neither was there —
+/// i.e. there is nothing to retry differently.
+fn without_sld_body(query: &str) -> Option<String> {
+    let mut stripped = false;
+    let kept: Vec<&str> = query
+        .split('&')
+        .filter(|pair| {
+            let key = pair.split('=').next().unwrap_or_default();
+            let drop = key.eq_ignore_ascii_case("sld_body") || key.eq_ignore_ascii_case("sld");
+            stripped |= drop;
+            !drop
+        })
+        .collect();
+    stripped.then(|| kept.join("&"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn without_sld_body_drops_only_the_style_param() {
+        assert_eq!(
+            without_sld_body("layers=Radar:x&SLD_BODY=%3Csld%2F%3E&time=now").as_deref(),
+            Some("layers=Radar:x&time=now"),
+        );
+    }
+
+    #[test]
+    fn without_sld_body_is_none_when_unstyled() {
+        assert_eq!(without_sld_body("layers=Radar:x&time=now"), None);
     }
 }

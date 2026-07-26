@@ -1,8 +1,12 @@
 use serde::Serialize;
 
-/// The default FMI radar layer: nationwide reflectivity composite (dBZ),
-/// the classic rain-radar look. Updated every 5 minutes.
-pub const DEFAULT_LAYER: &str = "Radar:suomi_dbz_eureffin";
+/// The default FMI radar layer: nationwide rain *rate* (`rr`) composite, updated
+/// every 5 minutes. Chosen over the reflectivity composite
+/// (`Radar:suomi_dbz_eureffin`) because its band is mm/h × 100 — the same unit as
+/// the HARMONIE forecast overlay — so one legend and one colour ramp describe the
+/// whole timeline. The frontend restyles these tiles with its own ramp via
+/// `SLD_BODY`; dBZ could only ever be labelled qualitatively.
+pub const DEFAULT_LAYER: &str = "Radar:suomi_rr_eureffin";
 
 /// Animation frames for the rain radar. `times` is ascending (oldest first),
 /// formatted as the ISO8601 instants FMI's WMS `time` dimension accepts.

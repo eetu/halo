@@ -7,18 +7,22 @@ use super::models::{ForecastFrame, PrecipForecast};
 
 /// FMI HARMONIE Scandinavia surface producer (hourly precipitation forecast).
 const PRODUCER: &str = "harmonie_scandinavia_surface";
-/// Half-extent of the requested area around the location, in degrees. Sized to
-/// cover southern Finland (centred on the saved location). Whole-Finland would
-/// need tiling — a single lat/lon overlay misregisters over a tall span.
-const HALF_LON: f64 = 4.5;
-const HALF_LAT: f64 = 1.7;
-/// Cap on the resampled grid's longest side. High enough to keep ~native
-/// (~2.5 km) detail across the southern-Finland box; values are rounded to
-/// 0.1 mm so the payload stays modest.
+/// Half-extent of the requested area around the location, in degrees. Covers the
+/// default zoom-8 view plus moderate panning, and is deliberately small enough
+/// that the ~0.0225° native grid (196×107 cells here) stays under
+/// `MAX_GRID_SIDE` and ships undownsampled. A wider box only bought coverage the
+/// map never shows, at the cost of resampling the visible part to mush.
+const HALF_LON: f64 = 2.2;
+const HALF_LAT: f64 = 1.2;
+/// Cap on the resampled grid's longest side — a safety valve for a larger or
+/// finer grid than the box above implies; values are rounded to 0.1 mm so the
+/// payload stays modest either way.
 const MAX_GRID_SIDE: usize = 400;
-/// FMI's GRIB `Precipitation1h` is in metres of water; the rest of the app
-/// (and FMI's own WFS) speaks millimetres.
-const MM_PER_METRE: f32 = 1000.0;
+/// FMI encodes `Precipitation1h` as GRIB2 parameter 0-1-7 (precipitation rate,
+/// kg m⁻² s⁻¹ ≡ mm/s) — *not* metres of water — so mm/h is the rate × 3600. The
+/// underlying field is quantised to 0.1 mm/h, which is why rounding the result to
+/// 0.1 below loses nothing.
+const SECONDS_PER_HOUR: f32 = 3600.0;
 
 type BoxErr = Box<dyn std::error::Error + Send + Sync>;
 
@@ -133,9 +137,7 @@ async fn fetch_once(
                         }
                     }
                 }
-                // FMI's GRIB encodes precipitation in metres; convert to mm and
-                // round to 0.1 mm (finer than the colour bins need, compact JSON).
-                let v = (peak * MM_PER_METRE * 10.0).round() / 10.0;
+                let v = to_mm_per_hour(peak);
                 max = max.max(v);
                 values.push(v);
             }
@@ -183,6 +185,12 @@ fn sample(raw: &[f32], g: &GridGeom, row_from_north: usize, col_from_west: usize
         .filter(|v| v.is_finite())
         .map(|v| v.max(0.0))
         .unwrap_or(0.0)
+}
+
+/// GRIB precipitation rate (mm/s) → mm/h, rounded to 0.1 mm — the quantisation
+/// of the source field, so this is lossless and keeps the JSON compact.
+fn to_mm_per_hour(rate: f32) -> f32 {
+    (rate * SECONDS_PER_HOUR * 10.0).round() / 10.0
 }
 
 fn resampled_dims(ni: usize, nj: usize) -> (usize, usize, usize) {
@@ -247,9 +255,29 @@ fn signed_micro(b: &[u8], o: usize) -> Option<f64> {
 mod tests {
     use super::*;
 
+    /// The field is a rate in mm/s, so mm/h is ×3600. Values below are real
+    /// decoded GRIB samples: FMI's own point forecast reported 0.1 mm for the
+    /// cell that decodes to 2.777_78e-5. Treating them as metres (×1000) rounds
+    /// light rain away to nothing.
+    #[test]
+    fn converts_rate_to_mm_per_hour() {
+        assert_eq!(to_mm_per_hour(2.777_78e-5), 0.1);
+        assert_eq!(to_mm_per_hour(7.222_22e-4), 2.6);
+        assert_eq!(to_mm_per_hour(0.0), 0.0);
+    }
+
     #[test]
     fn resample_keeps_small_grids_intact() {
         assert_eq!(resampled_dims(89, 45), (89, 45, 1));
+    }
+
+    /// The `HALF_LON`/`HALF_LAT` box is sized so FMI's native ~0.0225° grid ships
+    /// undownsampled; widening it again would silently blur the overlay.
+    #[test]
+    fn resample_keeps_the_requested_box_at_native_resolution() {
+        let ni = (2.0 * HALF_LON / 0.0225).round() as usize + 1;
+        let nj = (2.0 * HALF_LAT / 0.0225).round() as usize + 1;
+        assert_eq!(resampled_dims(ni, nj), (ni, nj, 1));
     }
 
     #[test]

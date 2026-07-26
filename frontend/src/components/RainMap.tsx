@@ -36,8 +36,11 @@ type Frame = {
 const FRAME_COUNT = 12; // observed radar frames (5-min steps → last hour)
 const FORECAST_HOURS = 12; // forecast frames (hourly)
 const DEFAULT_ZOOM = 8;
-const RADAR_OPACITY = 0.75;
-const FORECAST_OPACITY = 0.6;
+// One opacity for both halves of the timeline: the observed tiles now carry the
+// same ramp and the same per-pixel alpha as the forecast canvas, so anything else
+// would make the palette jump as you scrub past "now".
+const OVERLAY_OPACITY = 0.6;
+const PRECIP_ALPHA = 185; // 0–255, applied by both the canvas and the WMS SLD
 const PLAY_MS = 450; // per-frame while playing
 const HOLD_MS = 1100; // linger on the last frame before looping
 const LONG_PRESS_MS = 300; // hold before map-swipe scrubbing engages
@@ -45,43 +48,93 @@ const PAN_THRESHOLD = 10; // px of movement that counts as a pan, not a press
 const PX_PER_FRAME = 26; // swipe sensitivity once scrubbing
 
 // Precipitation colour ramp (mm/h → RGB). Shared by the heat overlay and legend.
+// Thresholds are tuned to Finnish rain rates — the bulk of what FMI forecasts is
+// 0.1–5 mm/h, so the ramp has to resolve that band rather than spend its blues on
+// it; heavier rates are rare enough to compress into the top stops.
 const PRECIP_STOPS: { v: number; c: [number, number, number] }[] = [
   { v: 0.1, c: [150, 210, 255] },
-  { v: 0.5, c: [90, 170, 245] },
-  { v: 1, c: [50, 120, 230] },
-  { v: 2, c: [40, 80, 200] },
-  { v: 4, c: [60, 180, 90] },
-  { v: 7, c: [220, 205, 50] },
-  { v: 12, c: [240, 140, 30] },
-  { v: 20, c: [225, 45, 45] },
-  { v: 40, c: [170, 0, 110] },
+  { v: 0.3, c: [90, 170, 245] },
+  { v: 0.6, c: [50, 120, 230] },
+  { v: 1, c: [40, 80, 200] },
+  { v: 2, c: [60, 180, 90] },
+  { v: 4, c: [220, 205, 50] },
+  { v: 8, c: [240, 140, 30] },
+  { v: 15, c: [225, 45, 45] },
+  { v: 30, c: [170, 0, 110] },
 ];
 
 const precipColor = (v: number): [number, number, number, number] => {
-  if (!(v >= 0.1)) return [0, 0, 0, 0];
+  if (!(v >= PRECIP_STOPS[0].v)) return [0, 0, 0, 0];
   let c = PRECIP_STOPS[0].c;
   for (const s of PRECIP_STOPS) if (v >= s.v) c = s.c;
-  return [c[0], c[1], c[2], 185];
+  return [c[0], c[1], c[2], PRECIP_ALPHA];
 };
 
-/** Paint one forecast grid into a canvas and wrap it as a geo-placed overlay. */
+const hex = ([r, g, b]: [number, number, number]) =>
+  `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+
+/**
+ * FMI's WMS colours the observed radar server-side, so the only way to get halo's
+ * ramp onto those frames is to hand GeoServer our own colour map — otherwise the
+ * timeline switches palettes at "now" and the legend describes only half of it.
+ *
+ * The `rr` layer's band is mm/h × 100, matching the forecast overlay's unit.
+ * `type="intervals"` reads each quantity as that interval's *upper* bound, so
+ * entry N carries stop N−1's colour: a leading transparent entry cuts everything
+ * below the first stop, and a wide-open final entry catches the extremes.
+ */
+const buildRadarSld = (layer: string) => {
+  const band = (mm: number) => Math.round(mm * 100);
+  const alpha = (PRECIP_ALPHA / 255).toFixed(3);
+  const entries = [
+    `<ColorMapEntry color="#000000" opacity="0" quantity="${band(PRECIP_STOPS[0].v)}"/>`,
+    ...PRECIP_STOPS.map((s, i) => {
+      const upper = PRECIP_STOPS[i + 1]?.v ?? s.v * 1000;
+      return `<ColorMapEntry color="${hex(s.c)}" opacity="${alpha}" quantity="${band(upper)}"/>`;
+    }),
+  ].join("");
+  return `<StyledLayerDescriptor xmlns="http://www.opengis.net/sld" version="1.0.0"><NamedLayer><Name>${layer}</Name><UserStyle><FeatureTypeStyle><Rule><RasterSymbolizer><ColorMap type="intervals">${entries}</ColorMap></RasterSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>`;
+};
+
+// Web Mercator's y for a latitude, in the projection's natural units — only the
+// ratio between two y values is used below, so the scale factor cancels out.
+const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+const invMercY = (y: number) => ((Math.atan(Math.exp(y)) * 2 - Math.PI / 2) * 180) / Math.PI;
+
+/**
+ * Paint one forecast grid into a canvas and wrap it as a geo-placed overlay.
+ *
+ * `L.imageOverlay` stretches the image linearly in Web Mercator, but the grid is
+ * regular in *latitude* — so the rows are resampled into Mercator space here.
+ * Skipping that lands the field a few km too far north mid-box (≈2.6 km over the
+ * current bbox, about one grid cell). Columns stay 1:1: longitude is linear in
+ * Mercator.
+ */
 const buildForecastOverlay = (fc: PrecipForecast, frame: ForecastFrame): L.ImageOverlay => {
   const { cols, rows, bbox } = fc;
+  const [south, west, north, east] = bbox;
   const canvas = document.createElement("canvas");
   canvas.width = cols;
   canvas.height = rows;
   const ctx = canvas.getContext("2d")!;
   const img = ctx.createImageData(cols, rows);
-  for (let p = 0; p < cols * rows; p++) {
-    const [r, g, b, a] = precipColor(frame.values[p]);
-    const o = p * 4;
-    img.data[o] = r;
-    img.data[o + 1] = g;
-    img.data[o + 2] = b;
-    img.data[o + 3] = a;
+  const lastRow = Math.max(1, rows - 1);
+  const yNorth = mercY(north);
+  const ySouth = mercY(south);
+  const dLat = (north - south) / lastRow;
+  for (let y = 0; y < rows; y++) {
+    const lat = invMercY(yNorth + (ySouth - yNorth) * (y / lastRow));
+    const src = Math.min(rows - 1, Math.max(0, Math.round((north - lat) / dLat)));
+    for (let x = 0; x < cols; x++) {
+      const [r, g, b, a] = precipColor(frame.values[src * cols + x]);
+      const o = (y * cols + x) * 4;
+      img.data[o] = r;
+      img.data[o + 1] = g;
+      img.data[o + 2] = b;
+      img.data[o + 3] = a;
+    }
   }
   ctx.putImageData(img, 0, 0);
-  const [south, west, north, east] = bbox;
   return L.imageOverlay(
     canvas.toDataURL(),
     [
@@ -178,6 +231,39 @@ const RainMap = ({ className }: { className?: string }) => {
     baseRef.current = base;
   }, [theme.mode, ready]);
 
+  // --- saved-location marker, so the centre point stays findable under the
+  // overlay. Accent orange: the precipitation ramp is all blues/greens/reds, so
+  // the marker can't be mistaken for rain. Vector layers default into
+  // `overlayPane` alongside the forecast images — `markerPane` keeps it on top
+  // (Leaflet spins up a per-pane renderer for a non-default `pane`).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || !location) return;
+    const at: L.LatLngExpression = [location.lat, location.lon];
+    const accent = theme.colors.activity.on;
+    const marks = [
+      L.circleMarker(at, {
+        pane: "markerPane",
+        radius: 9,
+        color: accent,
+        weight: 2,
+        fill: false,
+        interactive: false,
+      }),
+      L.circleMarker(at, {
+        pane: "markerPane",
+        radius: 3.5,
+        color: theme.colors.background.main,
+        weight: 1.5,
+        fillColor: accent,
+        fillOpacity: 1,
+        interactive: false,
+      }),
+    ];
+    marks.forEach((m) => m.addTo(map));
+    return () => marks.forEach((m) => map.removeLayer(m));
+  }, [location, ready, theme.colors.activity.on, theme.colors.background.main]);
+
   // --- build the unified layer stack: observed WMS tiles + forecast heat ---
   useEffect(() => {
     const map = mapRef.current;
@@ -186,6 +272,8 @@ const RainMap = ({ className }: { className?: string }) => {
 
     const built: Frame[] = [];
     if (obsData) {
+      // Same colour map for all 12 frames, so build it once.
+      const sldBody = buildRadarSld(obsData.layer);
       for (const time of obsData.times) {
         const layer = L.tileLayer
           .wms(api("/api/radar/wms"), {
@@ -195,13 +283,14 @@ const RainMap = ({ className }: { className?: string }) => {
             version: "1.3.0",
             opacity: 0,
             time,
+            sld_body: sldBody,
           } as unknown as L.WMSOptions)
           .addTo(map);
         built.push({
           kind: "observed",
           time,
           layer,
-          baseOpacity: RADAR_OPACITY,
+          baseOpacity: OVERLAY_OPACITY,
         });
       }
     }
@@ -212,7 +301,7 @@ const RainMap = ({ className }: { className?: string }) => {
           kind: "forecast",
           time: frame.time,
           layer,
-          baseOpacity: FORECAST_OPACITY,
+          baseOpacity: OVERLAY_OPACITY,
         });
       }
     }
@@ -379,8 +468,10 @@ const RainMap = ({ className }: { className?: string }) => {
     >
       <div ref={containerRef} css={{ position: "absolute", inset: 0, zIndex: 0 }} />
 
-      {/* precipitation legend (top-centre, clear of the left zoom + right recenter) */}
-      {fcData && (
+      {/* precipitation legend (top-centre, clear of the left zoom + right recenter).
+          Both halves of the timeline are mm/h in this ramp, so it stays valid
+          whichever half has loaded. */}
+      {(obsData || fcData) && (
         <div
           css={{
             position: "absolute",
