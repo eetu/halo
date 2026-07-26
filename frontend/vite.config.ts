@@ -1,7 +1,23 @@
 import react from "@vitejs/plugin-react";
 import AutoImport from "unplugin-auto-import/vite";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { qrcode } from "vite-plugin-qrcode";
+
+// Emit the baked image tag as a fetchable asset so a running bundle can notice
+// it has been superseded and reload itself (see hooks/useDeployReload.ts). The
+// tag inside the bundle is stale by definition — the comparison needs a copy
+// that is re-fetched from the server.
+const emitVersion = (): Plugin => ({
+  name: "halo-emit-version",
+  apply: "build",
+  generateBundle() {
+    this.emitFile({
+      type: "asset",
+      fileName: "version.json",
+      source: JSON.stringify({ build: process.env.VITE_HALO_IMAGE_TAG ?? "" }),
+    });
+  },
+});
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -27,5 +43,6 @@ export default defineConfig({
     }),
     // Print a scannable QR code for the LAN URL with `yarn dev --host`.
     qrcode(),
+    emitVersion(),
   ],
 });
