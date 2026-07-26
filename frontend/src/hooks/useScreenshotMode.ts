@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
 const isEnabled = (): boolean =>
-  typeof window !== "undefined" &&
-  new URLSearchParams(window.location.search).has("demo");
+  typeof window !== "undefined" && new URLSearchParams(window.location.search).has("demo");
 
 export const anonymize = (real: string, prefix: string): string => {
   let h = 0;

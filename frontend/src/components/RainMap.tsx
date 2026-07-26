@@ -65,10 +65,7 @@ const precipColor = (v: number): [number, number, number, number] => {
 };
 
 /** Paint one forecast grid into a canvas and wrap it as a geo-placed overlay. */
-const buildForecastOverlay = (
-  fc: PrecipForecast,
-  frame: ForecastFrame,
-): L.ImageOverlay => {
+const buildForecastOverlay = (fc: PrecipForecast, frame: ForecastFrame): L.ImageOverlay => {
   const { cols, rows, bbox } = fc;
   const canvas = document.createElement("canvas");
   canvas.width = cols;
@@ -106,9 +103,7 @@ const RainMap = ({ className }: { className?: string }) => {
   );
   const { data: fcData, error: fcError } = useSWR<PrecipForecast>(
     location
-      ? api(
-          `/api/radar/forecast?lat=${location.lat}&lon=${location.lon}&hours=${FORECAST_HOURS}`,
-        )
+      ? api(`/api/radar/forecast?lat=${location.lat}&lon=${location.lon}&hours=${FORECAST_HOURS}`)
       : null,
     jsonFetcher,
     // The FMI GRIB fetch can fail transiently (502); retry a few times rather
@@ -128,12 +123,8 @@ const RainMap = ({ className }: { className?: string }) => {
   // Frame metadata (kind + time), derived so labels/slider re-render in step
   // with the layers built in the effect below from the same two sources.
   const timeline = useMemo(() => {
-    const obs = (obsData?.times ?? []).map(
-      (time) => ({ kind: "observed", time }) as const,
-    );
-    const fc = (fcData?.frames ?? []).map(
-      (f) => ({ kind: "forecast", time: f.time }) as const,
-    );
+    const obs = (obsData?.times ?? []).map((time) => ({ kind: "observed", time }) as const);
+    const fc = (fcData?.frames ?? []).map((f) => ({ kind: "forecast", time: f.time }) as const);
     return [...obs, ...fc];
   }, [obsData, fcData]);
 
@@ -176,15 +167,12 @@ const RainMap = ({ className }: { className?: string }) => {
     if (!map || !ready) return;
     if (baseRef.current) map.removeLayer(baseRef.current);
     const variant = theme.mode === "dark" ? "dark_all" : "light_all";
-    const base = L.tileLayer(
-      `https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`,
-      {
-        subdomains: "abcd",
-        maxZoom: 19,
-        attribution:
-          '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
-      },
-    );
+    const base = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`, {
+      subdomains: "abcd",
+      maxZoom: 19,
+      attribution:
+        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+    });
     base.addTo(map);
     base.bringToBack();
     baseRef.current = base;
@@ -244,19 +232,14 @@ const RainMap = ({ className }: { className?: string }) => {
 
   // --- show only the active frame ---
   useEffect(() => {
-    framesRef.current.forEach((f, i) =>
-      f.layer.setOpacity(i === index ? f.baseOpacity : 0),
-    );
+    framesRef.current.forEach((f, i) => f.layer.setOpacity(i === index ? f.baseOpacity : 0));
   }, [index, timeline]);
 
   // --- playback loop ---
   useEffect(() => {
     if (!playing || timeline.length === 0) return;
     const delay = index >= lastIndex ? HOLD_MS : PLAY_MS;
-    const timer = setTimeout(
-      () => setIndex((i) => (i + 1) % timeline.length),
-      delay,
-    );
+    const timer = setTimeout(() => setIndex((i) => (i + 1) % timeline.length), delay);
     return () => clearTimeout(timer);
   }, [playing, index, lastIndex, timeline.length]);
 
@@ -354,16 +337,13 @@ const RainMap = ({ className }: { className?: string }) => {
     relColor = theme.colors.cool;
   }
   const activeForecastDry =
-    active?.kind === "forecast" &&
-    (fcData?.frames[index - observedCount]?.max ?? 0) === 0;
+    active?.kind === "forecast" && (fcData?.frames[index - observedCount]?.max ?? 0) === 0;
 
   const legendGradient = PRECIP_STOPS.map(
-    (s, i) =>
-      `rgb(${s.c[0]},${s.c[1]},${s.c[2]}) ${(i / (PRECIP_STOPS.length - 1)) * 100}%`,
+    (s, i) => `rgb(${s.c[0]},${s.c[1]},${s.c[2]}) ${(i / (PRECIP_STOPS.length - 1)) * 100}%`,
   ).join(", ");
 
-  const overlayPanel =
-    theme.mode === "dark" ? "rgba(37,37,37,0.9)" : "rgba(255,255,255,0.9)";
+  const overlayPanel = theme.mode === "dark" ? "rgba(37,37,37,0.9)" : "rgba(255,255,255,0.9)";
 
   if (!location) {
     return (
@@ -397,10 +377,7 @@ const RainMap = ({ className }: { className?: string }) => {
         [mq[0]]: { height: "70vh", minHeight: 360 },
       }}
     >
-      <div
-        ref={containerRef}
-        css={{ position: "absolute", inset: 0, zIndex: 0 }}
-      />
+      <div ref={containerRef} css={{ position: "absolute", inset: 0, zIndex: 0 }} />
 
       {/* precipitation legend (top-centre, clear of the left zoom + right recenter) */}
       {fcData && (
@@ -576,9 +553,7 @@ const RainMap = ({ className }: { className?: string }) => {
           >
             {active ? format(new Date(active.time), "HH:mm") : "––:––"}
           </div>
-          <div css={{ ...theme.typography.caption, color: relColor }}>
-            {relText}
-          </div>
+          <div css={{ ...theme.typography.caption, color: relColor }}>{relText}</div>
         </div>
       </div>
 

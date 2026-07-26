@@ -17,9 +17,7 @@ const headers = {
   Accept: "application/json",
 };
 
-export async function searchLocation(
-  query: string,
-): Promise<NominatimResult[]> {
+export async function searchLocation(query: string): Promise<NominatimResult[]> {
   const params = new URLSearchParams({
     q: query,
     format: "json",
@@ -30,10 +28,7 @@ export async function searchLocation(
   return res.json();
 }
 
-export async function reverseGeocode(
-  lat: number,
-  lon: number,
-): Promise<NominatimResult> {
+export async function reverseGeocode(lat: number, lon: number): Promise<NominatimResult> {
   const params = new URLSearchParams({
     lat: String(lat),
     lon: String(lon),

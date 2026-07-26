@@ -43,27 +43,20 @@ const fitsInsideBar = (ctx: Context, charPx: number): boolean => {
   if (value == null) return true;
   const scale = ctx.chart.scales.yPv;
   if (!scale) return true;
-  const barHeight = Math.abs(
-    scale.getPixelForValue(value) - scale.getPixelForValue(0),
-  );
+  const barHeight = Math.abs(scale.getPixelForValue(value) - scale.getPixelForValue(0));
   const text = `${value.toFixed(0)} kWh`;
   return barHeight >= text.length * charPx + 4;
 };
 
-const WeatherChart: React.FC<WeatherChartProps> = ({
-  data: unfilteredData,
-  days,
-}) => {
+const WeatherChart: React.FC<WeatherChartProps> = ({ data: unfilteredData, days }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery("(max-width: 600px)");
   const labelFontSize = isMobile ? 8 : 10;
   const labelCharPx = isMobile ? 5 : 6.5;
 
-  const data =
-    days === undefined ? unfilteredData : unfilteredData.slice(0, days);
+  const data = days === undefined ? unfilteredData : unfilteredData.slice(0, days);
 
-  const avgTemp =
-    data.map((d) => d.temp).reduce((a, b) => a + b, 0) / data.length;
+  const avgTemp = data.map((d) => d.temp).reduce((a, b) => a + b, 0) / data.length;
 
   const weatherLineColor = avgTemp < 5 ? theme.colors.cool : theme.colors.warm;
 
@@ -99,12 +92,9 @@ const WeatherChart: React.FC<WeatherChartProps> = ({
         rotation: -90,
         clip: false,
         font: { size: labelFontSize, weight: "bold" },
-        formatter: (v: number | null) =>
-          v == null ? "" : `${v.toFixed(0)} kWh`,
-        anchor: (ctx: Context) =>
-          fitsInsideBar(ctx, labelCharPx) ? "center" : "end",
-        align: (ctx: Context) =>
-          fitsInsideBar(ctx, labelCharPx) ? "center" : "top",
+        formatter: (v: number | null) => (v == null ? "" : `${v.toFixed(0)} kWh`),
+        anchor: (ctx: Context) => (fitsInsideBar(ctx, labelCharPx) ? "center" : "end"),
+        align: (ctx: Context) => (fitsInsideBar(ctx, labelCharPx) ? "center" : "top"),
         color: (ctx: Context) =>
           fitsInsideBar(ctx, labelCharPx)
             ? "#ffffff"
@@ -173,14 +163,7 @@ const WeatherChart: React.FC<WeatherChartProps> = ({
     },
   };
 
-  return (
-    <Chart
-      type="bar"
-      options={options}
-      data={chartData}
-      plugins={[ChartDataLabels]}
-    />
-  );
+  return <Chart type="bar" options={options} data={chartData} plugins={[ChartDataLabels]} />;
 };
 
 export default WeatherChart;

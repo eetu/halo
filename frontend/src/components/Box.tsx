@@ -56,11 +56,7 @@ const Box: React.FC<BoxProps> = ({
       }}
       onClick={expandable ? () => setCollapsed(!collapsed) : undefined}
     >
-      {background && (
-        <div css={{ position: "absolute", inset: 0, zIndex: 0 }}>
-          {background}
-        </div>
-      )}
+      {background && <div css={{ position: "absolute", inset: 0, zIndex: 0 }}>{background}</div>}
       <BoxHeader
         hairline={expandable}
         transparent={background !== undefined}
@@ -90,12 +86,7 @@ type BoxHeaderProps = {
   borderColor?: string;
 } & React.HTMLAttributes<HTMLDivElement>;
 
-const BoxHeader: React.FC<BoxHeaderProps> = ({
-  children,
-  hairline,
-  transparent,
-  borderColor,
-}) => {
+const BoxHeader: React.FC<BoxHeaderProps> = ({ children, hairline, transparent, borderColor }) => {
   const theme = useTheme();
 
   return (
@@ -106,13 +97,9 @@ const BoxHeader: React.FC<BoxHeaderProps> = ({
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        backgroundColor: transparent
-          ? "transparent"
-          : theme.colors.background.main,
+        backgroundColor: transparent ? "transparent" : theme.colors.background.main,
         padding: "1.5em",
-        borderBottom: hairline
-          ? `1px ${borderColor ?? theme.colors.border} solid`
-          : "none",
+        borderBottom: hairline ? `1px ${borderColor ?? theme.colors.border} solid` : "none",
       }}
     >
       {children}
@@ -164,11 +151,7 @@ type BoxFooterProps = {
   borderColor?: string;
 } & React.HTMLAttributes<HTMLDivElement>;
 
-const BoxFooter: React.FC<BoxFooterProps> = ({
-  collapsed,
-  transparent,
-  borderColor,
-}) => {
+const BoxFooter: React.FC<BoxFooterProps> = ({ collapsed, transparent, borderColor }) => {
   const theme = useTheme();
 
   return (
@@ -179,12 +162,8 @@ const BoxFooter: React.FC<BoxFooterProps> = ({
         display: "flex",
         justifyContent: "center",
         height: "25px",
-        backgroundColor: transparent
-          ? "transparent"
-          : theme.colors.background.main,
-        borderTop: collapsed
-          ? "none"
-          : `1px ${borderColor ?? theme.colors.border} solid`,
+        backgroundColor: transparent ? "transparent" : theme.colors.background.main,
+        borderTop: collapsed ? "none" : `1px ${borderColor ?? theme.colors.border} solid`,
         color: theme.colors.text.light,
       }}
     >

@@ -21,8 +21,7 @@ type TemperatureBoxProps = {
   temperatureOverride?: number;
 };
 
-const isBatteryLow = (sensor: Sensor) =>
-  sensor.battery !== undefined && sensor.battery < 2;
+const isBatteryLow = (sensor: Sensor) => sensor.battery !== undefined && sensor.battery < 2;
 
 const TREND_PILL_THRESHOLD = 0.3;
 
@@ -51,8 +50,7 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
   const lowestBatterySensor = sensors
     .filter(isBatteryLow)
     .reduce<Sensor | null>(
-      (acc, s) =>
-        acc === null || (s.battery ?? 100) < (acc.battery ?? 100) ? s : acc,
+      (acc, s) => (acc === null || (s.battery ?? 100) < (acc.battery ?? 100) ? s : acc),
       null,
     );
 
@@ -128,9 +126,7 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
                   >
                     {showBatteryPill && <BatteryPill battery={r.battery!} />}
                     <span>
-                      {r.temperature !== undefined
-                        ? `${Math.round(r.temperature)}°`
-                        : ""}
+                      {r.temperature !== undefined ? `${Math.round(r.temperature)}°` : ""}
                     </span>
                   </div>
                 }
@@ -166,11 +162,7 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
                   </span>
                 )}
               </div>
-              <Sparkline
-                points={summary.points}
-                color={theme.colors.activity.on}
-                height={48}
-              />
+              <Sparkline points={summary.points} color={theme.colors.activity.on} height={48} />
             </div>
           )}
         </div>
@@ -278,10 +270,9 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
             },
           }}
         >
-          {summary.diff1h !== null &&
-            Math.abs(summary.diff1h) >= TREND_PILL_THRESHOLD && (
-              <TrendPill diff={summary.diff1h} />
-            )}
+          {summary.diff1h !== null && Math.abs(summary.diff1h) >= TREND_PILL_THRESHOLD && (
+            <TrendPill diff={summary.diff1h} />
+          )}
           <span
             css={{
               display: "inline-flex",

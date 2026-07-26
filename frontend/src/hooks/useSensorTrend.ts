@@ -29,8 +29,7 @@ const useSensorTrend = (sensors: Sensor[]): Trend | null => {
   const enabledSensors = sensors.filter((s) => s.enabled && s.connected);
   const currentAvg =
     enabledSensors.length > 0
-      ? enabledSensors.reduce((sum, s) => sum + (s.temperature ?? 0), 0) /
-        enabledSensors.length
+      ? enabledSensors.reduce((sum, s) => sum + (s.temperature ?? 0), 0) / enabledSensors.length
       : null;
 
   const sensorIds = enabledSensors
@@ -60,8 +59,7 @@ const useSensorTrend = (sensors: Sensor[]): Trend | null => {
         }
 
         const oldAvg =
-          [...oldestBySensor.values()].reduce((a, b) => a + b, 0) /
-          oldestBySensor.size;
+          [...oldestBySensor.values()].reduce((a, b) => a + b, 0) / oldestBySensor.size;
 
         setTrend(getTrend(currentAvg - oldAvg));
       })

@@ -1,0 +1,29 @@
+# EditorConfig — https://editorconfig.org
+# The cross-language source of truth for indentation, line width, and newline
+# hygiene. Prettier reads it (indent_style, indent_size, max_line_length,
+# end_of_line); editors read it natively; rustfmt ignores it but already matches.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+# Prettier's default is 80. Line width is the one knob most repos override; set
+# it here once and every editor + Prettier follows.
+max_line_length = 100
+
+# Rust (rustfmt) indents with 4 spaces.
+[*.rs]
+indent_size = 4
+
+[Makefile]
+indent_style = tab
+
+# Markdown keeps trailing whitespace (two trailing spaces = a hard line break).
+[*.md]
+trim_trailing_whitespace = false
+
+# YAML inherits spaces from [*] above — never set it to tabs (illegal in YAML).

@@ -47,10 +47,7 @@ export const weatherIconMap: Record<number, WeatherIconMapping> = {
   8000: { icon: Zap, description: "Thunderstorm" },
 };
 
-export const getWeatherIcon = (
-  weatherCode: number,
-  isNight?: boolean,
-): LucideIcon => {
+export const getWeatherIcon = (weatherCode: number, isNight?: boolean): LucideIcon => {
   const mapping = weatherIconMap[weatherCode];
 
   if (!mapping) {

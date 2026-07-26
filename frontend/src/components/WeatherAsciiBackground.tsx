@@ -114,11 +114,7 @@ function fbm(x: number, y: number, seed: number): number {
 
 // precip is mm/h: 0 = none, ~6+ = heavy downpour. It scales how dense and fast
 // rain/snow fall so a drizzle and a downpour read differently.
-function buildConfig(
-  kind: WeatherKind,
-  isDark: boolean,
-  precip: number,
-): KindConfig {
+function buildConfig(kind: WeatherKind, isDark: boolean, precip: number): KindConfig {
   const rain = isDark ? "#7f93d8" : "#5fa9d6";
   const snow = isDark ? "#b4c6ec" : "#8fb6dd";
   const star = isDark ? "#a6a6a6" : "#8f8f8f";
@@ -316,9 +312,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
     if (!ctx) return;
 
     const cfg = buildConfig(kind, isDark, precipitation);
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const phase = moonPhase();
     // The header/footer are transparent when this canvas is the box background,
     // so the canvas paints the card surface itself — a dim sky for clouds/fog,
@@ -364,9 +358,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
         rows = Math.max(2, Math.ceil(height / cellH) + 1);
       } else {
         const target = Math.round(((width * height) / 1000) * cfg.density);
-        particles = Array.from({ length: target }, () =>
-          makeParticle(cfg, width, height),
-        );
+        particles = Array.from({ length: target }, () => makeParticle(cfg, width, height));
         if (cfg.accumulate) {
           pileCols = Math.max(1, Math.ceil(width / groundW) + 1);
           pile = new Float32Array(pileCols);
@@ -469,8 +461,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
           let v = (1 - r) * 0.95 + (granule - 0.5) * 0.6;
           if (v <= 0) continue;
           if (v > 1) v = 1;
-          const g =
-            ramp[Math.min(ramp.length - 1, Math.floor(v * ramp.length))];
+          const g = ramp[Math.min(ramp.length - 1, Math.floor(v * ramp.length))];
           if (g === " ") continue;
           ctx.globalAlpha = cfg.alpha * (0.5 + v * 0.5);
           ctx.fillText(g, cx + gx, cy + gy);
@@ -525,10 +516,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
             // ground contact: snow settles into a pile, rain splashes
             let landed = false;
             if (cfg.accumulate && pileCols > 0) {
-              const col = Math.min(
-                pileCols - 1,
-                Math.max(0, Math.floor(p.x / groundW)),
-              );
+              const col = Math.min(pileCols - 1, Math.max(0, Math.floor(p.x / groundW)));
               const landingY = height - pile[col] * pileUnit;
               if (p.y >= landingY) {
                 if (pile[col] < MAX_PILE) pile[col] += 1;
@@ -552,8 +540,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
             if (p.x > width + cfg.fontSize) p.x = -cfg.fontSize;
             ctx.globalAlpha = cfg.alpha;
           } else {
-            const tw =
-              0.35 + 0.65 * Math.abs(Math.sin(t * p.twinkleSpeed + p.phase));
+            const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * p.twinkleSpeed + p.phase));
             ctx.globalAlpha = cfg.alpha * tw;
           }
           ctx.fillText(p.glyph, p.x, p.y);
@@ -566,11 +553,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
             const stacks = Math.floor(pile[c]);
             for (let k = 0; k < stacks; k++) {
               ctx.globalAlpha = cfg.alpha * 0.9;
-              ctx.fillText(
-                "*",
-                c * groundW,
-                height - k * pileUnit - pileUnit / 2,
-              );
+              ctx.fillText("*", c * groundW, height - k * pileUnit - pileUnit / 2);
             }
             pile[c] = Math.max(0, pile[c] - MELT * dt);
           }
@@ -628,11 +611,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
             ctx.globalAlpha = Math.max(0, shooting.life) * (1 - i / 7);
             ctx.fillText(i === 0 ? "✦" : i < 3 ? "—" : "·", tx, ty);
           }
-          if (
-            shooting.life <= 0 ||
-            shooting.x < -20 ||
-            shooting.x > width + 20
-          ) {
+          if (shooting.life <= 0 || shooting.x < -20 || shooting.x > width + 20) {
             shooting = null;
           }
         }

@@ -138,8 +138,7 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
   const nodeSize = 42;
   const nodeTitleFontSize = 24;
   const socCircumference = 2 * Math.PI * nodeSize;
-  const socArc =
-    (Math.max(0, Math.min(100, soc ?? 0)) / 100) * socCircumference;
+  const socArc = (Math.max(0, Math.min(100, soc ?? 0)) / 100) * socCircumference;
 
   return (
     <div
@@ -252,13 +251,7 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
             stroke={theme.colors.activity.on}
             strokeWidth={strokeWidth}
           />
-          <NodeIcon
-            cx={160}
-            cy={110}
-            size={nodeSize}
-            color={theme.colors.activity.on}
-            icon={Sun}
-          />
+          <NodeIcon cx={160} cy={110} size={nodeSize} color={theme.colors.activity.on} icon={Sun} />
         </g>
         <text
           x="160"
@@ -364,13 +357,7 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
             stroke={theme.colors.grid}
             strokeWidth={strokeWidth}
           />
-          <NodeIcon
-            cx={640}
-            cy={110}
-            size={nodeSize}
-            color={theme.colors.grid}
-            icon={Plug}
-          />
+          <NodeIcon cx={640} cy={110} size={nodeSize} color={theme.colors.grid} icon={Plug} />
         </g>
         <text
           x="640"
@@ -413,13 +400,7 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
             stroke={theme.colors.home}
             strokeWidth={strokeWidth}
           />
-          <NodeIcon
-            cx={640}
-            cy={310}
-            size={nodeSize}
-            color={theme.colors.home}
-            icon={House}
-          />
+          <NodeIcon cx={640} cy={310} size={nodeSize} color={theme.colors.home} icon={House} />
         </g>
         <text
           x="640"

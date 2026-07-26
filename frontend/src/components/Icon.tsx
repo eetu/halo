@@ -17,10 +17,7 @@ const Icon: React.FC<IconProps> = ({
   return (
     <span
       style={style}
-      className={classNames(
-        className,
-        `material-icons${type === "outlined" ? "-outlined" : ""}`,
-      )}
+      className={classNames(className, `material-icons${type === "outlined" ? "-outlined" : ""}`)}
       css={{
         fontSize: size,
       }}

@@ -1,11 +1,5 @@
 import { Theme, useTheme } from "@emotion/react";
-import {
-  BarElement,
-  CategoryScale,
-  Chart as ChartJS,
-  ChartOptions,
-  LinearScale,
-} from "chart.js";
+import { BarElement, CategoryScale, Chart as ChartJS, ChartOptions, LinearScale } from "chart.js";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Bar } from "react-chartjs-2";
 
@@ -39,10 +33,7 @@ const PRICE_HI = 20;
 const PRICE_MAX = 50;
 const priceHue = (price: number) => {
   if (price <= PRICE_HI) {
-    const t = Math.min(
-      1,
-      Math.max(0, (price - PRICE_LO) / (PRICE_HI - PRICE_LO)),
-    );
+    const t = Math.min(1, Math.max(0, (price - PRICE_LO) / (PRICE_HI - PRICE_LO)));
     return 120 * (1 - t); // 120 green → 0 red
   }
   const k = Math.min(1, (price - PRICE_HI) / (PRICE_MAX - PRICE_HI));
@@ -85,17 +76,7 @@ const drawLoupe = (
   const ctx = dst.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, dst.width, dst.height);
-  ctx.drawImage(
-    src,
-    srcX * dpr,
-    srcY * dpr,
-    srcW * dpr,
-    srcH * dpr,
-    0,
-    0,
-    dst.width,
-    dst.height,
-  );
+  ctx.drawImage(src, srcX * dpr, srcY * dpr, srcW * dpr, srcH * dpr, 0, 0, dst.width, dst.height);
 
   // Crosshair on the exact column under the fingertip (kept honest near the
   // edges, where the source patch is clamped and the finger is off-centre).
@@ -118,17 +99,7 @@ const PriceChart: React.FC<{
   onSelect: (hour: string, price: number) => void;
   onRelease: () => void;
   loupe: LoupeBox | null;
-}> = ({
-  containerRef,
-  points,
-  yMin,
-  yMax,
-  now,
-  selectedHour,
-  onSelect,
-  onRelease,
-  loupe,
-}) => {
+}> = ({ containerRef, points, yMin, yMax, now, selectedHour, onSelect, onRelease, loupe }) => {
   const theme = useTheme();
   const loupeRef = useRef<HTMLCanvasElement>(null);
   const prices = points.map((p) => p.price);
@@ -413,9 +384,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
     // Same object identity for an unchanged selection so a steady hover doesn't
     // churn the charts on every mousemove.
     setSelected((prev) =>
-      prev && prev.day === day && prev.hour === hour
-        ? prev
-        : { day, hour, price },
+      prev && prev.day === day && prev.hour === hour ? prev : { day, hour, price },
     );
   }, []);
   // On release (finger lifts / cursor leaves): one revert timer, replacing any
@@ -450,9 +419,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
       const points = day === "today" ? data.today : data.tomorrow;
       if (!points.length) continue;
       const canvas =
-        (day === "today" ? todayRef : tomorrowRef).current?.querySelector(
-          "canvas",
-        ) ?? null;
+        (day === "today" ? todayRef : tomorrowRef).current?.querySelector("canvas") ?? null;
       if (!canvas) continue;
       const rect = canvas.getBoundingClientRect();
       const dx = Math.max(rect.left - t.clientX, 0, t.clientX - rect.right);
@@ -467,19 +434,13 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
     const xCss = t.clientX - best.rect.left;
     const idx = Math.max(
       0,
-      Math.min(
-        best.points.length - 1,
-        Math.round(chart.scales.x.getValueForPixel(xCss) ?? 0),
-      ),
+      Math.min(best.points.length - 1, Math.round(chart.scales.x.getValueForPixel(xCss) ?? 0)),
     );
     const p = best.points[idx];
     select(best.day, p.hour.slice(11, 13), p.price);
 
     const touchX = Math.max(0, Math.min(best.rect.width, xCss));
-    const left = Math.max(
-      0,
-      Math.min(best.rect.width - LOUPE_W, touchX - LOUPE_W / 2),
-    );
+    const left = Math.max(0, Math.min(best.rect.width - LOUPE_W, touchX - LOUPE_W / 2));
     const top = t.clientY - best.rect.top - LOUPE_H - LOUPE_GAP;
     setLoupe({ day: best.day, left, top, touchX });
   };
@@ -489,9 +450,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
   };
   // The colour-scale gradient is hidden by default to save space; tapping the
   // header reveals it (no button/placeholder), remembered across reloads.
-  const [showScale, setShowScale] = useState(
-    () => localStorage.getItem(SCALE_KEY) === "1",
-  );
+  const [showScale, setShowScale] = useState(() => localStorage.getItem(SCALE_KEY) === "1");
   const toggleScale = () =>
     setShowScale((v) => {
       localStorage.setItem(SCALE_KEY, v ? "0" : "1");
@@ -539,9 +498,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
 
   // Shared y-range across both days so bar heights are comparable (an expensive
   // day towers over a cheap one) and consistent with the absolute colour scale.
-  const allPrices = data
-    ? [...data.today, ...data.tomorrow].map((p) => p.price)
-    : [];
+  const allPrices = data ? [...data.today, ...data.tomorrow].map((p) => p.price) : [];
   const yMax = allPrices.length ? Math.max(0, ...allPrices) * 1.08 : 1;
   const yMin = allPrices.length ? Math.min(0, ...allPrices) : 0;
 
@@ -576,9 +533,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
             minWidth: 0,
           }}
         >
-          <span css={{ fontFamily: theme.fonts.heading, fontSize: 16 }}>
-            pörssisähkö
-          </span>
+          <span css={{ fontFamily: theme.fonts.heading, fontSize: 16 }}>pörssisähkö</span>
           {data && selected && (
             <span
               css={{
@@ -606,9 +561,7 @@ const SpotPrice: React.FC<{ className?: string }> = ({ className }) => {
           Hintatietoja ei saatavilla
         </div>
       ) : !data ? (
-        <div css={{ ...sub, padding: "2em 0", textAlign: "center" }}>
-          Ladataan...
-        </div>
+        <div css={{ ...sub, padding: "2em 0", textAlign: "center" }}>Ladataan...</div>
       ) : (
         <>
           {showScale && <ScaleLegend unit={data.unit} />}

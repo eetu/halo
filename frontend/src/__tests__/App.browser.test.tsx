@@ -6,8 +6,6 @@ describe("App", () => {
   test("renders without crashing", async () => {
     const screen = await render(<Root />);
 
-    await expect
-      .element(screen.getByRole("button", { name: "fullscreen" }))
-      .toBeVisible();
+    await expect.element(screen.getByRole("button", { name: "fullscreen" })).toBeVisible();
   });
 });

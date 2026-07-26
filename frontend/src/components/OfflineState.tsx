@@ -41,8 +41,7 @@ const OfflineState: FC<OfflineStateProps> = ({ label, lastSeen }) => {
             color: theme.colors.text.light,
           }}
         >
-          päivitetty{" "}
-          {formatDistanceToNow(lastSeen, { locale: fi, addSuffix: true })}
+          päivitetty {formatDistanceToNow(lastSeen, { locale: fi, addSuffix: true })}
         </div>
       )}
     </div>
