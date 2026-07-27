@@ -149,12 +149,19 @@ const RainMap = ({ className }: { className?: string }) => {
   const theme = useTheme();
   const { location } = useLocationSettings();
 
-  const { data: obsData, error: obsError } = useSWR<RadarFrames>(
-    api(`/api/radar/frames?count=${FRAME_COUNT}`),
-    jsonFetcher,
-    { refreshInterval: 60_000, shouldRetryOnError: false },
-  );
-  const { data: fcData, error: fcError } = useSWR<PrecipForecast>(
+  const {
+    data: obsData,
+    error: obsError,
+    mutate: mutateObs,
+  } = useSWR<RadarFrames>(api(`/api/radar/frames?count=${FRAME_COUNT}`), jsonFetcher, {
+    refreshInterval: 60_000,
+    shouldRetryOnError: false,
+  });
+  const {
+    data: fcData,
+    error: fcError,
+    mutate: mutateFc,
+  } = useSWR<PrecipForecast>(
     location
       ? api(`/api/radar/forecast?lat=${location.lat}&lon=${location.lon}&hours=${FORECAST_HOURS}`)
       : null,
@@ -162,6 +169,36 @@ const RainMap = ({ className }: { className?: string }) => {
     // The FMI GRIB fetch can fail transiently (502); retry a few times rather
     // than leaving the timeline stuck at "now" until the next refresh.
     { refreshInterval: 600_000, errorRetryCount: 4, errorRetryInterval: 5_000 },
+  );
+
+  // Cutoff for "still ahead of us". Bumped on wake rather than ticked on a
+  // clock: a per-second tick would rebuild the whole Leaflet layer stack.
+  const [horizon, setHorizon] = useState(() => Date.now());
+
+  // iOS suspends `refreshInterval` timers while backgrounded, so a phone or
+  // panel picked up after a long sleep still holds whatever it had when it went
+  // under. Refetch on wake — same pattern and reason as SpotPrice.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      setHorizon(Date.now());
+      void mutateObs();
+      void mutateFc();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [mutateObs, mutateFc]);
+
+  // Forecast frames carry absolute valid times, so the copy held in memory ages
+  // as the device sleeps. Drop what has already happened, so the timeline can't
+  // label an elapsed frame "+1 h" in the gap between waking and the refetch
+  // landing. The backend trims the same way on every response; this is the
+  // client-side half of it.
+  const forecastFrames = useMemo(
+    () => (fcData?.frames ?? []).filter((f) => new Date(f.time).getTime() > horizon),
+    [fcData, horizon],
   );
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -177,12 +214,13 @@ const RainMap = ({ className }: { className?: string }) => {
   // with the layers built in the effect below from the same two sources.
   const timeline = useMemo(() => {
     const obs = (obsData?.times ?? []).map((time) => ({ kind: "observed", time }) as const);
-    const fc = (fcData?.frames ?? []).map((f) => ({ kind: "forecast", time: f.time }) as const);
+    const fc = forecastFrames.map((f) => ({ kind: "forecast", time: f.time }) as const);
     return [...obs, ...fc];
-  }, [obsData, fcData]);
+  }, [obsData, forecastFrames]);
 
   const observedCount = obsData?.times.length ?? 0;
   const nowIndex = observedCount - 1;
+  const nowTime = obsData?.times[nowIndex];
   const lastIndex = timeline.length - 1;
 
   // --- map lifecycle (re-created if the location changes) ---
@@ -294,8 +332,8 @@ const RainMap = ({ className }: { className?: string }) => {
         });
       }
     }
-    if (fcData && fcData.frames.length > 0) {
-      for (const frame of fcData.frames) {
+    if (fcData && forecastFrames.length > 0) {
+      for (const frame of forecastFrames) {
         const layer = buildForecastOverlay(fcData, frame).addTo(map);
         built.push({
           kind: "forecast",
@@ -317,7 +355,7 @@ const RainMap = ({ className }: { className?: string }) => {
       built.forEach((f) => map.removeLayer(f.layer));
       framesRef.current = [];
     };
-  }, [obsData, fcData, ready]);
+  }, [obsData, fcData, forecastFrames, ready]);
 
   // --- show only the active frame ---
   useEffect(() => {
@@ -422,11 +460,23 @@ const RainMap = ({ className }: { className?: string }) => {
       relText = `−${back * obsInterval} min`;
     }
   } else if (active?.kind === "forecast") {
-    relText = `+${index - nowIndex} h`;
+    // Measured from the frame's own valid time against the latest observed
+    // frame — the same instant the timeline calls "nyt" — rather than from its
+    // position in the array. A cached grid can have lost its leading hours, and
+    // an index-derived label would then quietly misdate every frame.
+    //
+    // Ceil, not round: "nyt" lands wherever the last radar sweep did (:50, say)
+    // while forecast frames sit on the hour, so the first one is only minutes
+    // out. Rounding would call both 10:00 and 11:00 "+1 h"; ceil counts whole
+    // forecast hours, which is what the label means.
+    const ahead = nowTime
+      ? Math.ceil((new Date(active.time).getTime() - new Date(nowTime).getTime()) / 3_600_000)
+      : index - nowIndex;
+    relText = `+${Math.max(1, ahead)} h`;
     relColor = theme.colors.cool;
   }
   const activeForecastDry =
-    active?.kind === "forecast" && (fcData?.frames[index - observedCount]?.max ?? 0) === 0;
+    active?.kind === "forecast" && (forecastFrames[index - observedCount]?.max ?? 0) === 0;
 
   const legendGradient = PRECIP_STOPS.map(
     (s, i) => `rgb(${s.c[0]},${s.c[1]},${s.c[2]}) ${(i / (PRECIP_STOPS.length - 1)) * 100}%`,

@@ -1,10 +1,16 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 
 use super::fmi::converter::FmiConverter;
 use crate::AppState;
+
+/// How old a cached observation may be before we stop offering it as a
+/// fallback. Comfortably past the 1 h TTL — a brief upstream wobble should not
+/// blank the dashboard — but short of the point where "current conditions" have
+/// become yesterday's.
+const MAX_STALE: Duration = Duration::from_secs(6 * 3600);
 
 #[derive(Debug, Deserialize)]
 pub struct LocationQuery {
@@ -66,7 +72,7 @@ pub async fn fmi(
 }
 
 async fn fmi_fallback_or_error(state: &AppState, key: &str) -> HttpResponse {
-    if let Some(stale) = state.weather_cache.get_stale(key).await {
+    if let Some(stale) = state.weather_cache.get_stale(key, MAX_STALE).await {
         tracing::warn!("Returning stale cached weather data");
         HttpResponse::Ok().json(stale)
     } else {
@@ -112,7 +118,7 @@ pub async fn tomorrow(
 }
 
 async fn tomorrow_fallback_or_error(state: &AppState, key: &str) -> HttpResponse {
-    if let Some(stale) = state.tomorrow_cache.get_stale(key).await {
+    if let Some(stale) = state.tomorrow_cache.get_stale(key, MAX_STALE).await {
         tracing::warn!("Returning stale cached weather data");
         HttpResponse::Ok().json(stale)
     } else {
