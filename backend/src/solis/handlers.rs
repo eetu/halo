@@ -1,10 +1,15 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use utoipa::IntoParams;
 
 use crate::AppState;
+
+/// This is live inverter state — power flows, battery SoC. An hour past the
+/// 5-min TTL is already generous; beyond that the numbers are fiction and a
+/// 502 (which the frontend renders as unavailable) is the honest answer.
+const MAX_STALE: Duration = Duration::from_secs(3600);
 
 #[utoipa::path(
     get,
@@ -33,7 +38,7 @@ pub async fn get_data(state: web::Data<Arc<AppState>>) -> HttpResponse {
         }
         Err(e) => {
             tracing::error!("Failed to fetch SolisCloud data: {e}");
-            if let Some(stale) = state.solis_cache.get_stale("station").await {
+            if let Some(stale) = state.solis_cache.get_stale("station", MAX_STALE).await {
                 tracing::warn!("Returning stale SolisCloud data");
                 return HttpResponse::Ok().json(stale);
             }

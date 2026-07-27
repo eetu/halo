@@ -194,6 +194,14 @@ pub fn create_app(
         .route("/status", web::get().to(status))
         .service(
             web::scope("/api")
+                // These payloads are all live state, and none of them carry a
+                // validator. iOS Safari heuristically caches an unlabelled GET,
+                // which leaves an installed PWA rendering last night's data
+                // against a backend that has long since moved on. `DefaultHeaders`
+                // only fills in a header that is absent, so the radar tile route's
+                // own `public, max-age=300` still stands — tiles stay cacheable,
+                // JSON does not.
+                .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "no-store")))
                 .service(
                     web::scope("/history")
                         .route("/sensors", web::get().to(sensor_history))

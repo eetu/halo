@@ -1,8 +1,13 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use actix_web::{web, HttpResponse};
 
 use crate::AppState;
+
+/// A spot response is a full day-ahead array, so it stays useful for hours past
+/// the 10-min TTL — but not across midnight, where "today" silently becomes
+/// yesterday's prices.
+const MAX_STALE: Duration = Duration::from_secs(6 * 3600);
 
 #[utoipa::path(
     get,
@@ -24,7 +29,7 @@ pub async fn get_spot(state: web::Data<Arc<AppState>>) -> HttpResponse {
         }
         Err(e) => {
             tracing::error!("Failed to fetch spot prices: {e}");
-            if let Some(stale) = state.spot_cache.get_stale("spot").await {
+            if let Some(stale) = state.spot_cache.get_stale("spot", MAX_STALE).await {
                 tracing::warn!("Returning stale spot prices");
                 return HttpResponse::Ok().json(stale);
             }
