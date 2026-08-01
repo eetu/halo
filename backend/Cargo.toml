@@ -28,7 +28,7 @@ sun = "0.3"
 hmac = "0.13.0"
 sha1 = "0.11.0"
 md5 = "0.8.0"
-base64 = "0.22.1"
+base64 = "0.23.0"
 grib = { version = "0.16.0", default-features = false }
 
 [dev-dependencies]
