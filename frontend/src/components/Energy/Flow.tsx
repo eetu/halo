@@ -1,30 +1,13 @@
-import { keyframes, useTheme } from "@emotion/react";
+import { useTheme } from "@emotion/react";
 import { format } from "date-fns";
 import { fi } from "date-fns/locale/fi";
-import {
-  Activity,
-  Battery,
-  BatteryCharging,
-  BatteryFull,
-  BatteryLow,
-  BatteryMedium,
-  BatteryWarning,
-  House,
-  type LucideIcon,
-  Plug,
-  Sun,
-} from "lucide-react";
 import { memo } from "react";
 import useSWR from "swr";
 import { useMediaQuery } from "usehooks-ts";
 
 import { api, fetcher } from "../../api";
 import { SolisData } from "../../types/solis";
-
-const pulse = keyframes`
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.75; transform: scale(1.04); }
-`;
+import NeonNode, { type NodeGlyph } from "./NeonNode";
 
 // Energy "packets" gliding along a conduit. Count, speed and opacity all scale
 // with the line's power (kW) so a trickle and a surge read differently — the
@@ -59,35 +42,26 @@ const FlowParticles: React.FC<{
   );
 };
 
-const NodeIcon: React.FC<{
-  cx: number;
-  cy: number;
-  size: number;
-  color: string;
-  icon: LucideIcon;
-}> = ({ cx, cy, size, color, icon: Icon }) => (
-  <foreignObject x={cx - size / 2} y={cy - size / 2} width={size} height={size}>
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Icon size={size} color={color} strokeWidth={1.8} />
-    </div>
-  </foreignObject>
-);
+// Full brightness, per node, in kW. The array's nameplate is what the sun node is
+// glowed against, so a clear noon in June is the only thing that lights it all the
+// way; the inverter and the house sides share it. The battery runs against its
+// charge/discharge power ceiling — not its 15.2 kWh of capacity, which is what the
+// ring's fill shows.
+const PV_NAMEPLATE_KW = 7.2;
+const BATTERY_MAX_KW = 5;
 
-const batteryIcon = (soc: number, charging: boolean): LucideIcon => {
-  if (charging) return BatteryCharging;
-  if (soc >= 75) return BatteryFull;
-  if (soc >= 50) return BatteryMedium;
-  if (soc >= 25) return BatteryLow;
-  if (soc >= 10) return Battery;
-  return BatteryWarning;
+// A low battery reads as a tired tube. Nothing under 30 %, then the glass gets
+// steadily less able to hold its strike — at 5 % it stutters like the last letter of
+// a motel sign.
+const socFlicker = (soc: number) => (soc >= 30 ? 0 : Math.min(0.6, ((30 - soc) / 25) * 0.6));
+
+const batteryGlyph = (soc: number, charging: boolean): NodeGlyph => {
+  if (charging) return "batteryCharging";
+  if (soc >= 75) return "batteryFull";
+  if (soc >= 50) return "batteryMedium";
+  if (soc >= 25) return "batteryLow";
+  if (soc >= 10) return "battery";
+  return "batteryWarning";
 };
 
 const Flow: React.FC<{ className?: string }> = ({ className }) => {
@@ -123,22 +97,23 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
     strokeLinecap: "round" as const,
   };
 
-  const pulseStyle = {
-    transformOrigin: "center",
-    transformBox: "fill-box" as const,
-    animation: `${pulse} 2.4s ease-in-out infinite`,
-  };
-
   const pvActive = hasFlow(pv);
   const homeActive = hasFlow(home);
   const batteryActive = hasFlow(batteryPower);
   const gridActive = hasFlow(grid);
 
-  const strokeWidth = 4;
   const nodeSize = 42;
   const nodeTitleFontSize = 24;
-  const socCircumference = 2 * Math.PI * nodeSize;
-  const socArc = (Math.max(0, Math.min(100, soc ?? 0)) / 100) * socCircumference;
+
+  // The neon ring lands at exactly 2 * nodeSize, so a node's backing disc doubles as
+  // the sign's wall: it hides the conduits and packets that run under the node.
+  const nodeDisc = { r: nodeSize, fill: theme.colors.background.light };
+
+  // The nodes are neon signs overlaid on the diagram, so they need the viewBox the
+  // rest of the geometry is written in.
+  const viewBox: [number, number, number, number] = isMobile
+    ? [80, 28, 640, 360]
+    : [0, 28, 800, 364];
 
   return (
     <div
@@ -181,238 +156,235 @@ const Flow: React.FC<{ className?: string }> = ({ className }) => {
             : "—"}
         </div>
       </div>
-      <svg
-        viewBox={isMobile ? "80 28 640 360" : "0 28 800 364"}
-        css={{ width: "100%", height: "auto" }}
-      >
-        {/* Conduits — quiet base lines */}
-        <path
-          id="flow-pv"
-          d="M160,110 C260,110 300,210 400,210"
-          stroke={theme.colors.activity.on}
-          opacity={pvActive ? 0.3 : 0.12}
-          css={conduit}
-        />
-        <path
-          id="flow-battery"
-          d="M160,310 C260,310 300,210 400,210"
-          stroke={theme.colors.battery}
-          opacity={batteryActive ? 0.3 : 0.12}
-          css={conduit}
-        />
-        <path
-          id="flow-grid"
-          d="M400,210 C500,210 540,110 640,110"
-          stroke={theme.colors.grid}
-          opacity={gridActive ? 0.3 : 0.12}
-          css={conduit}
-        />
-        <path
-          id="flow-home"
-          d="M400,210 C500,210 540,310 640,310"
-          stroke={theme.colors.home}
-          opacity={homeActive ? 0.3 : 0.12}
-          css={conduit}
-        />
-
-        {/* Flowing energy packets — direction & intensity follow the data */}
-        <FlowParticles
-          pathId="flow-pv"
-          color={theme.colors.activity.on}
-          magnitude={pv}
-          reverse={false}
-        />
-        <FlowParticles
-          pathId="flow-battery"
-          color={theme.colors.battery}
-          magnitude={charging > 0 ? charging : discharging}
-          reverse={charging > 0}
-        />
-        <FlowParticles
-          pathId="flow-grid"
-          color={theme.colors.grid}
-          magnitude={importing > 0 ? importing : exporting}
-          reverse={importing > 0}
-        />
-        <FlowParticles
-          pathId="flow-home"
-          color={theme.colors.home}
-          magnitude={home}
-          reverse={false}
-        />
-
-        {/* PV node */}
-        <g css={pvActive ? pulseStyle : undefined}>
-          <circle
-            cx="160"
-            cy="110"
-            r={nodeSize}
-            fill={theme.colors.background.light}
+      <div css={{ position: "relative" }}>
+        <svg viewBox={viewBox.join(" ")} css={{ width: "100%", height: "auto", display: "block" }}>
+          {/* Conduits — quiet base lines */}
+          <path
+            id="flow-pv"
+            d="M160,110 C260,110 300,210 400,210"
             stroke={theme.colors.activity.on}
-            strokeWidth={strokeWidth}
+            opacity={pvActive ? 0.3 : 0.12}
+            css={conduit}
           />
-          <NodeIcon cx={160} cy={110} size={nodeSize} color={theme.colors.activity.on} icon={Sun} />
-        </g>
-        <text
-          x="160"
-          y="50"
-          textAnchor="middle"
-          fontFamily={theme.fonts.heading}
-          fontSize={nodeTitleFontSize}
-          fill={theme.colors.text.main}
-        >
-          aurinko
-        </text>
-        <text
-          x="160"
-          y="178"
-          textAnchor="middle"
-          fontSize="24"
-          fill={theme.colors.text.main}
-          style={{ fontVariantNumeric: "tabular-nums" }}
-        >
-          {pv.toFixed(2)} kW
-        </text>
-
-        {/* Inverter node */}
-        <g>
-          <circle
-            cx="400"
-            cy="210"
-            r={nodeSize}
-            fill={theme.colors.background.light}
-            stroke={theme.colors.text.main}
-            strokeWidth={strokeWidth}
+          <path
+            id="flow-battery"
+            d="M160,310 C260,310 300,210 400,210"
+            stroke={theme.colors.battery}
+            opacity={batteryActive ? 0.3 : 0.12}
+            css={conduit}
           />
-          <NodeIcon
-            cx={400}
-            cy={210}
-            size={nodeSize}
-            color={theme.colors.text.main}
-            icon={Activity}
-          />
-        </g>
-        {/* Battery node */}
-        {soc !== null && (
-          <>
-            <text
-              x="160"
-              y="250"
-              textAnchor="middle"
-              fontFamily={theme.fonts.heading}
-              fontSize={nodeTitleFontSize}
-              fill={theme.colors.text.main}
-            >
-              akku
-            </text>
-            <g css={batteryActive ? pulseStyle : undefined}>
-              <circle
-                cx="160"
-                cy="310"
-                r={nodeSize}
-                fill={theme.colors.background.light}
-                stroke={theme.colors.battery}
-                strokeWidth={strokeWidth}
-                strokeOpacity={0.2}
-              />
-              <circle
-                cx="160"
-                cy="310"
-                r={nodeSize}
-                fill="none"
-                stroke={theme.colors.battery}
-                strokeWidth={strokeWidth}
-                strokeDasharray={`${socArc} ${socCircumference}`}
-                strokeLinecap="round"
-                transform="rotate(-90 160 310)"
-              />
-              <NodeIcon
-                cx={160}
-                cy={310}
-                size={nodeSize}
-                color={theme.colors.battery}
-                icon={batteryIcon(soc, charging > 0)}
-              />
-            </g>
-            <text
-              x="160"
-              y="378"
-              textAnchor="middle"
-              fontSize="24"
-              fill={theme.colors.text.main}
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {Math.abs(batteryPower).toFixed(2)} kW
-            </text>
-          </>
-        )}
-
-        {/* Grid node */}
-        <g css={gridActive ? pulseStyle : undefined}>
-          <circle
-            cx="640"
-            cy="110"
-            r={nodeSize}
-            fill={theme.colors.background.light}
+          <path
+            id="flow-grid"
+            d="M400,210 C500,210 540,110 640,110"
             stroke={theme.colors.grid}
-            strokeWidth={strokeWidth}
+            opacity={gridActive ? 0.3 : 0.12}
+            css={conduit}
           />
-          <NodeIcon cx={640} cy={110} size={nodeSize} color={theme.colors.grid} icon={Plug} />
-        </g>
-        <text
-          x="640"
-          y="50"
-          textAnchor="middle"
-          fontFamily={theme.fonts.heading}
-          fontSize={nodeTitleFontSize}
-          fill={theme.colors.text.main}
-        >
-          verkko
-        </text>
-        <text
-          x="640"
-          y="178"
-          textAnchor="middle"
-          fontSize="24"
-          fill={theme.colors.text.main}
-          style={{ fontVariantNumeric: "tabular-nums" }}
-        >
-          {Math.abs(grid).toFixed(2)} kW
-        </text>
-
-        {/* Home node */}
-        <text
-          x="640"
-          y="250"
-          textAnchor="middle"
-          fontFamily={theme.fonts.heading}
-          fontSize={nodeTitleFontSize}
-          fill={theme.colors.text.main}
-        >
-          koti
-        </text>
-        <g css={homeActive ? pulseStyle : undefined}>
-          <circle
-            cx="640"
-            cy="310"
-            r={nodeSize}
-            fill={theme.colors.background.light}
+          <path
+            id="flow-home"
+            d="M400,210 C500,210 540,310 640,310"
             stroke={theme.colors.home}
-            strokeWidth={strokeWidth}
+            opacity={homeActive ? 0.3 : 0.12}
+            css={conduit}
           />
-          <NodeIcon cx={640} cy={310} size={nodeSize} color={theme.colors.home} icon={House} />
-        </g>
-        <text
-          x="640"
-          y="378"
-          textAnchor="middle"
-          fontSize="24"
-          fill={theme.colors.text.main}
-          style={{ fontVariantNumeric: "tabular-nums" }}
-        >
-          {home.toFixed(2)} kW
-        </text>
-      </svg>
+
+          {/* Flowing energy packets — direction & intensity follow the data */}
+          <FlowParticles
+            pathId="flow-pv"
+            color={theme.colors.activity.on}
+            magnitude={pv}
+            reverse={false}
+          />
+          <FlowParticles
+            pathId="flow-battery"
+            color={theme.colors.battery}
+            magnitude={charging > 0 ? charging : discharging}
+            reverse={charging > 0}
+          />
+          <FlowParticles
+            pathId="flow-grid"
+            color={theme.colors.grid}
+            magnitude={importing > 0 ? importing : exporting}
+            reverse={importing > 0}
+          />
+          <FlowParticles
+            pathId="flow-home"
+            color={theme.colors.home}
+            magnitude={home}
+            reverse={false}
+          />
+
+          {/* Node backing discs — they hide the conduits and packets that run under
+            a node, and the neon rings land on their edge */}
+          <circle cx="160" cy="110" {...nodeDisc} />
+          <circle cx="400" cy="210" {...nodeDisc} />
+          <circle cx="640" cy="110" {...nodeDisc} />
+          <circle cx="640" cy="310" {...nodeDisc} />
+          {soc !== null && <circle cx="160" cy="310" {...nodeDisc} />}
+
+          {/* PV node */}
+          <text
+            x="160"
+            y="50"
+            textAnchor="middle"
+            fontFamily={theme.fonts.heading}
+            fontSize={nodeTitleFontSize}
+            fill={theme.colors.text.main}
+          >
+            aurinko
+          </text>
+          <text
+            x="160"
+            y="178"
+            textAnchor="middle"
+            fontSize="24"
+            fill={theme.colors.text.main}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {pv.toFixed(2)} kW
+          </text>
+
+          {/* Battery node */}
+          {soc !== null && (
+            <>
+              <text
+                x="160"
+                y="250"
+                textAnchor="middle"
+                fontFamily={theme.fonts.heading}
+                fontSize={nodeTitleFontSize}
+                fill={theme.colors.text.main}
+              >
+                akku
+              </text>
+              <text
+                x="160"
+                y="378"
+                textAnchor="middle"
+                fontSize="24"
+                fill={theme.colors.text.main}
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {Math.abs(batteryPower).toFixed(2)} kW
+              </text>
+            </>
+          )}
+
+          {/* Grid node */}
+          <text
+            x="640"
+            y="50"
+            textAnchor="middle"
+            fontFamily={theme.fonts.heading}
+            fontSize={nodeTitleFontSize}
+            fill={theme.colors.text.main}
+          >
+            verkko
+          </text>
+          <text
+            x="640"
+            y="178"
+            textAnchor="middle"
+            fontSize="24"
+            fill={theme.colors.text.main}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {Math.abs(grid).toFixed(2)} kW
+          </text>
+
+          {/* Home node */}
+          <text
+            x="640"
+            y="250"
+            textAnchor="middle"
+            fontFamily={theme.fonts.heading}
+            fontSize={nodeTitleFontSize}
+            fill={theme.colors.text.main}
+          >
+            koti
+          </text>
+          <text
+            x="640"
+            y="378"
+            textAnchor="middle"
+            fontSize="24"
+            fill={theme.colors.text.main}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {home.toFixed(2)} kW
+          </text>
+        </svg>
+
+        {/* The nodes themselves — neon signs registered to the viewBox above. The
+            strike delays walk outward from the inverter, so opening this view lights
+            the board in the order the power actually moves. */}
+        <NeonNode
+          cx={160}
+          cy={110}
+          viewBox={viewBox}
+          glyph="sun"
+          color={theme.colors.activity.on}
+          on={pvActive}
+          magnitude={pv}
+          reference={PV_NAMEPLATE_KW}
+          strikeDelay={260}
+          label="aurinko"
+        />
+        <NeonNode
+          cx={400}
+          cy={210}
+          viewBox={viewBox}
+          glyph="inverter"
+          color={theme.colors.text.main}
+          on
+          magnitude={pv + importing + discharging}
+          reference={PV_NAMEPLATE_KW}
+          label="invertteri"
+        />
+        {soc !== null && (
+          // The ring is the SoC gauge: lit as far as the charge runs, dim tube for
+          // the rest.
+          <NeonNode
+            cx={160}
+            cy={310}
+            viewBox={viewBox}
+            glyph={batteryGlyph(soc, charging > 0)}
+            color={theme.colors.battery}
+            ringTrack={theme.colors.border}
+            on
+            magnitude={batteryPower}
+            reference={BATTERY_MAX_KW}
+            ring={soc / 100}
+            flicker={socFlicker(soc)}
+            strikeDelay={520}
+            label={`akku ${Math.round(soc)} %`}
+          />
+        )}
+        <NeonNode
+          cx={640}
+          cy={110}
+          viewBox={viewBox}
+          glyph="plug"
+          color={theme.colors.grid}
+          on={gridActive}
+          magnitude={grid}
+          reference={PV_NAMEPLATE_KW}
+          strikeDelay={780}
+          label="verkko"
+        />
+        <NeonNode
+          cx={640}
+          cy={310}
+          viewBox={viewBox}
+          glyph="house"
+          color={theme.colors.home}
+          on={homeActive}
+          magnitude={home}
+          reference={PV_NAMEPLATE_KW}
+          strikeDelay={1040}
+          label="koti"
+        />
+      </div>
     </div>
   );
 };

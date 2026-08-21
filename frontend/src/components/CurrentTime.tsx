@@ -5,6 +5,7 @@ import { fi } from "date-fns/locale/fi";
 import React, { memo } from "react";
 
 import useCurrentTime from "../hooks/useCurrentTime";
+import useGlowboxTheme from "../hooks/useGlowboxTheme";
 import useLocal from "../hooks/useLocal";
 
 type CurrentTimeProps = {} & React.HTMLAttributes<HTMLDivElement>;
@@ -123,11 +124,6 @@ type NixieClockProps = {
   mm: string;
   ss: string;
 };
-
-// Every glowbox core takes its own colour bundle, 'dark' | 'light' | 'auto'. 'auto'
-// would follow prefers-color-scheme on its own, but so does our theme (Root.tsx), so
-// pass ours: one source of truth, and it still works if a manual toggle lands later.
-const useGlowboxTheme = (): "dark" | "light" => (useTheme().mode === "light" ? "light" : "dark");
 
 const NixieClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
   const glowboxTheme = useGlowboxTheme();
