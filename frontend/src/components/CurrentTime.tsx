@@ -124,7 +124,14 @@ type NixieClockProps = {
   ss: string;
 };
 
+// Every glowbox core takes its own colour bundle, 'dark' | 'light' | 'auto'. 'auto'
+// would follow prefers-color-scheme on its own, but so does our theme (Root.tsx), so
+// pass ours: one source of truth, and it still works if a manual toggle lands later.
+const useGlowboxTheme = (): "dark" | "light" => (useTheme().mode === "light" ? "light" : "dark");
+
 const NixieClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
+  const glowboxTheme = useGlowboxTheme();
+
   // One tube per slot, keyed by slot rather than by value: the key must stay stable
   // across ticks or React remounts the canvas and the cathode cross-fade is lost.
   const tubes: [string, string][] = [
@@ -142,7 +149,7 @@ const NixieClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
     <div css={{ display: "flex", flexDirection: "row" }}>
       {tubes.map(([slot, value]) => (
         <div key={slot} css={{ height: 120, width: ["c1", "c0"].includes(slot) ? 26 : 78 }}>
-          <NixieTube value={value} />
+          <NixieTube value={value} theme={glowboxTheme} />
         </div>
       ))}
     </div>
@@ -178,6 +185,8 @@ const VFD_LAYOUT: VfdElement[] = [
 ];
 
 const VfdClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
+  const glowboxTheme = useGlowboxTheme();
+
   return (
     <div css={{ width: 640, height: 128 }}>
       <VfdPanel
@@ -186,6 +195,10 @@ const VfdClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
         values={{ time: `${hh}.${mm}`, secs: ss }}
         phosphor="amber"
         filter="amber"
+        // The glass stays dark in both bundles — a phosphor anode needs a dark
+        // window. What moves is the chassis: dark grey plate, or the brushed
+        // silver a 70s receiver actually had.
+        theme={glowboxTheme}
         label={`${hh}:${mm}:${ss}`}
       />
     </div>
@@ -197,12 +210,7 @@ const VfdClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
 const FLAP_CHARSET = "0123456789:";
 
 const SplitFlapClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
-  const theme = useTheme();
-
-  // The only one of the three that can genuinely go light: a flap is printed
-  // plastic, not a light source, and pale-card boards are real hardware. Dark
-  // mode keeps the core's own near-black card / warm-white ink.
-  const light = theme.mode === "light";
+  const glowboxTheme = useGlowboxTheme();
 
   return (
     <div css={{ width: 560, height: 100 }}>
@@ -211,9 +219,10 @@ const SplitFlapClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
         rows={1}
         charset={FLAP_CHARSET}
         text={`${hh}:${mm}:${ss}`}
-        card={light ? theme.colors.background.main : undefined}
-        ink={light ? theme.colors.onAccent : undefined}
-        board={light ? theme.colors.text.light : undefined}
+        // Near-black cards in dark, the bone-white printed strip of a pale Solari
+        // board in light. Don't set card/ink/board here: a colour we name is ours
+        // for good and would stop following the bundle.
+        theme={glowboxTheme}
         label={`${hh}:${mm}:${ss}`}
       />
     </div>
@@ -221,12 +230,7 @@ const SplitFlapClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
 };
 
 const LcdClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
-  const theme = useTheme();
-
-  // The reflective one: dark ink on a lit pane, native to a light page. The green
-  // STN glass is positive (readable even unlit); the blue is negative — light ink
-  // that only exists while the backlight is on, which is what suits the dark theme.
-  const negative = theme.mode === "dark";
+  const glowboxTheme = useGlowboxTheme();
 
   return (
     <div css={{ width: 480, height: 128 }}>
@@ -234,7 +238,11 @@ const LcdClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
         cols={8}
         rows={1}
         text={`${hh}:${mm}:${ss}`}
-        panel={negative ? "blue" : "green"}
+        // The glass is hardware, not a theme — the bundle only moves the plastic
+        // frame. So keep choosing it: positive green STN (dark ink, readable in
+        // daylight) in light, the backlit blue negative in dark.
+        panel={glowboxTheme === "dark" ? "blue" : "green"}
+        theme={glowboxTheme}
         backlight
         // A clock has no cursor parked after its last digit.
         cursor="none"
