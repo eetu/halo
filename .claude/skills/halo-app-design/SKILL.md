@@ -29,8 +29,7 @@ If invoked with no task, ask what to build, then act as an expert designer.
 dot. This is the family's reference glyph; other apps riff on its stroke
 language.
 
-**Wordmark** — `halo` + accent period. Full riff: *"i shot marvin in the halo."*
-(Pulp Fiction — Vincent's "I shot Marvin in the face." with "face" → "halo").
+**Wordmark** — `halo` + accent period. Full riff: *"halo."*.
 Inter 600, lowercase, `-0.04em`, warm accent dot, same family as the dashboard
 numerals so brand and data read as one. Below the mobile breakpoint the text
 collapses entirely, leaving the glyph alone. See `frontend/src/components/Wordmark.tsx`.

@@ -36,7 +36,7 @@ const Wordmark: React.FC<WordmarkProps> = ({ className, size = 22, ...rest }) =>
           [mq[0]]: { display: "none" },
         }}
       >
-        i shot marvin in the halo
+        halo
         <span css={{ color: theme.colors.activity.on }}>.</span>
       </span>
     </div>
