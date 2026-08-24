@@ -12,9 +12,12 @@ import {
   PointElement,
 } from "chart.js";
 import ChartDataLabels, { Context } from "chartjs-plugin-datalabels";
-import React from "react";
+import React, { createElement, useMemo, useState } from "react";
 import { Chart } from "react-chartjs-2";
 import { useMediaQuery } from "usehooks-ts";
+
+import { mq } from "../mq";
+import { getFmiWeatherIcon } from "../weather/fmi/icons";
 
 ChartJS.register(
   BarController,
@@ -30,7 +33,15 @@ type WeatherChartData = {
   temp: number;
   rain: number;
   pvKwh?: number | null;
+  weatherSymbol?: number;
   label: string;
+};
+
+// The plot box in canvas pixels. The day labels are HTML (chart.js can't draw a
+// Lucide icon), so they are laid out over this box instead of as x-axis ticks.
+type PlotBox = {
+  left: number;
+  width: number;
 };
 
 type WeatherChartProps = {
@@ -53,6 +64,30 @@ const WeatherChart: React.FC<WeatherChartProps> = ({ data: unfilteredData, days 
   const isMobile = useMediaQuery("(max-width: 600px)");
   const labelFontSize = isMobile ? 8 : 10;
   const labelCharPx = isMobile ? 5 : 6.5;
+  const [plot, setPlot] = useState<PlotBox | null>(null);
+
+  // Reports the plot box so the HTML day labels can be aligned to it. Guarded by
+  // a sub-pixel comparison: the state write re-renders, which updates the chart,
+  // which fires this again — identical numbers end the cycle after one pass.
+  const plugins = useMemo(
+    () => [
+      ChartDataLabels,
+      {
+        id: "plotBounds",
+        afterLayout: (chart: ChartJS) => {
+          const { left, right } = chart.chartArea;
+          const width = right - left;
+          if (width <= 0) return;
+          setPlot((prev) =>
+            prev && Math.abs(prev.left - left) < 0.5 && Math.abs(prev.width - width) < 0.5
+              ? prev
+              : { left, width },
+          );
+        },
+      },
+    ],
+    [],
+  );
 
   const data = days === undefined ? unfilteredData : unfilteredData.slice(0, days);
 
@@ -126,7 +161,8 @@ const WeatherChart: React.FC<WeatherChartProps> = ({ data: unfilteredData, days 
         grid: {
           display: false,
         },
-        ticks: { color: theme.mode === "dark" ? "#d6d6d6" : "#525252" },
+        // Drawn as HTML below the canvas so each day can carry its weather icon.
+        ticks: { display: false },
       },
       yTemp: {
         position: "left",
@@ -163,7 +199,62 @@ const WeatherChart: React.FC<WeatherChartProps> = ({ data: unfilteredData, days 
     },
   };
 
-  return <Chart type="bar" options={options} data={chartData} plugins={[ChartDataLabels]} />;
+  const tickColor = theme.mode === "dark" ? "#d6d6d6" : "#525252";
+  const iconSize = isMobile ? 12 : 14;
+
+  return (
+    <div
+      css={{
+        flex: 1,
+        minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
+      }}
+    >
+      <div css={{ flex: 1, minHeight: 0 }}>
+        <Chart type="bar" options={options} data={chartData} plugins={plugins} />
+      </div>
+      <div
+        css={{
+          display: "flex",
+          flexDirection: "row",
+          marginLeft: plot?.left ?? 0,
+          width: plot?.width ?? "100%",
+          // The bar categories sit at even fractions of the plot box, so equal
+          // cells centre on their bars.
+          visibility: plot ? "visible" : "hidden",
+        }}
+      >
+        {data.map((d) => (
+          <div
+            key={d.label}
+            css={{
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 4,
+              color: tickColor,
+              fontSize: 12,
+              lineHeight: 1.2,
+              [mq[0]]: { fontSize: 11 },
+            }}
+          >
+            <span>{d.label}</span>
+            {d.weatherSymbol != null &&
+              createElement(getFmiWeatherIcon(d.weatherSymbol), {
+                size: iconSize,
+                strokeWidth: 1.75,
+              })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
 export default WeatherChart;

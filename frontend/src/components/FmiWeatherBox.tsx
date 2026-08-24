@@ -8,6 +8,7 @@ import useSWR from "swr";
 import { api, jsonFetcher } from "../api";
 import useLocationSettings from "../hooks/useLocationSettings";
 import useScreenshotMode from "../hooks/useScreenshotMode";
+import { mq } from "../mq";
 import { PvForecast } from "../types/pv";
 import { WeatherData } from "../types/weather/fmi";
 import { weatherBorderColor } from "../weather/asciiSky";
@@ -131,6 +132,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
         temp: d.temperatureMax,
         rain: d.precipitation,
         pvKwh: includePv ? pv.kwh : null,
+        weatherSymbol: d.weatherSymbol,
         label: `${format(new Date(d.date), "EEEEEE", {
           locale: fi,
         })}`,
@@ -138,6 +140,10 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
     });
 
   const segments = getFmiTemperatureSegments(hourly);
+  // Sunrise/sunset as plain hours: a segment sample outside them gets the night
+  // icon variant (moon for a clear sky).
+  const sunriseHour = new Date(today.sunrise).getHours();
+  const sunsetHour = new Date(today.sunset).getHours();
 
   const realIsNight = now < new Date(current.sunrise) || now > new Date(current.sunset);
   // In demo mode the test controls can override the rendered weather so every
@@ -166,9 +172,14 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
         <div
           css={{
             position: "relative",
+            display: "flex",
             backgroundColor: theme.colors.background.light,
-            height: "200px",
+            // Taller than the plot alone: the day labels moved out of the canvas
+            // and wrap to two lines on a phone.
+            height: "220px",
             padding: 10,
+            boxSizing: "border-box",
+            [mq[0]]: { height: "240px" },
           }}
         >
           <WeatherChart data={chartData} days={7} />
@@ -306,6 +317,7 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
               flexDirection: "column",
               borderRight: `1px ${borderColor ?? theme.colors.border} solid`,
               width: "25%",
+              minWidth: 0,
               textAlign: "center",
               "&:last-of-type": {
                 borderRight: "none",
@@ -322,14 +334,25 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
             >
               {s.title}
             </span>
-            <span
+            <div
               css={{
                 marginTop: 0.25,
-                fontVariantNumeric: "tabular-nums",
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 6,
+                [mq[0]]: { flexWrap: "wrap", gap: 4 },
               }}
             >
-              {s.temp}°
-            </span>
+              <span css={{ fontVariantNumeric: "tabular-nums" }}>{s.temp}°</span>
+              <WeatherIcon
+                weatherSymbol={s.weatherSymbol}
+                isNight={s.hour < sunriseHour || s.hour >= sunsetHour}
+                size={16}
+                css={{ color: theme.colors.text.muted, flexShrink: 0 }}
+              />
+            </div>
           </div>
         ))}
       </div>

@@ -7,6 +7,7 @@ import React, { memo } from "react";
 import useCurrentTime from "../hooks/useCurrentTime";
 import useGlowboxTheme from "../hooks/useGlowboxTheme";
 import useLocal from "../hooks/useLocal";
+import { mq } from "../mq";
 
 type CurrentTimeProps = {} & React.HTMLAttributes<HTMLDivElement>;
 
@@ -27,6 +28,19 @@ const DISPLAY_FONTS = [
   { family: "SplitFlap" },
   { family: "Lcd" },
 ];
+
+// The glowbox faces are canvases that redraw to their container (ResizeObserver),
+// so the wrapper spans the column and each face caps itself at its design width.
+const DISPLAY_WRAPPER = {
+  width: "100%",
+  display: "flex",
+  justifyContent: "center",
+  cursor: "pointer",
+  userSelect: "none",
+  // On a phone these faces span the whole column, which is also where the
+  // wordmark and the fullscreen button sit — drop below them.
+  [mq[0]]: { marginTop: 26 },
+} as const;
 
 const CurrentTime: React.FC<CurrentTimeProps> = ({ className }) => {
   const theme = useTheme();
@@ -50,19 +64,19 @@ const CurrentTime: React.FC<CurrentTimeProps> = ({ className }) => {
       }}
     >
       {displayFont.family === "Nixie" ? (
-        <div onClick={cycleFont} css={{ cursor: "pointer", userSelect: "none" }}>
+        <div onClick={cycleFont} css={DISPLAY_WRAPPER}>
           <NixieClock hh={hh} mm={mm} ss={ss} />
         </div>
       ) : displayFont.family === "Vfd" ? (
-        <div onClick={cycleFont} css={{ cursor: "pointer", userSelect: "none" }}>
+        <div onClick={cycleFont} css={DISPLAY_WRAPPER}>
           <VfdClock hh={hh} mm={mm} ss={ss} />
         </div>
       ) : displayFont.family === "SplitFlap" ? (
-        <div onClick={cycleFont} css={{ cursor: "pointer", userSelect: "none" }}>
+        <div onClick={cycleFont} css={DISPLAY_WRAPPER}>
           <SplitFlapClock hh={hh} mm={mm} ss={ss} />
         </div>
       ) : displayFont.family === "Lcd" ? (
-        <div onClick={cycleFont} css={{ cursor: "pointer", userSelect: "none" }}>
+        <div onClick={cycleFont} css={DISPLAY_WRAPPER}>
           <LcdClock hh={hh} mm={mm} ss={ss} />
         </div>
       ) : (
@@ -141,10 +155,27 @@ const NixieClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
     ["s1", ss[1]],
   ];
 
+  // 520 = six 78px tubes + two 26px colons; below that width the row scales down
+  // as one and every tube keeps its share.
   return (
-    <div css={{ display: "flex", flexDirection: "row" }}>
+    <div
+      css={{
+        display: "flex",
+        flexDirection: "row",
+        width: "min(100%, 520px)",
+        aspectRatio: "520 / 120",
+      }}
+    >
       {tubes.map(([slot, value]) => (
-        <div key={slot} css={{ height: 120, width: ["c1", "c0"].includes(slot) ? 26 : 78 }}>
+        <div
+          key={slot}
+          css={{
+            flexGrow: ["c1", "c0"].includes(slot) ? 26 : 78,
+            flexBasis: 0,
+            minWidth: 0,
+            height: "100%",
+          }}
+        >
           <NixieTube value={value} theme={glowboxTheme} />
         </div>
       ))}
@@ -184,7 +215,7 @@ const VfdClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
   const glowboxTheme = useGlowboxTheme();
 
   return (
-    <div css={{ width: 640, height: 128 }}>
+    <div css={{ width: "min(100%, 640px)", aspectRatio: "640 / 128" }}>
       <VfdPanel
         frame={VFD_FRAME}
         layout={VFD_LAYOUT}
@@ -209,7 +240,7 @@ const SplitFlapClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
   const glowboxTheme = useGlowboxTheme();
 
   return (
-    <div css={{ width: 560, height: 100 }}>
+    <div css={{ width: "min(100%, 560px)", aspectRatio: "560 / 100" }}>
       <SplitFlap
         cols={8}
         rows={1}
@@ -229,7 +260,7 @@ const LcdClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
   const glowboxTheme = useGlowboxTheme();
 
   return (
-    <div css={{ width: 480, height: 128 }}>
+    <div css={{ width: "min(100%, 480px)", aspectRatio: "480 / 128" }}>
       <LcdModule
         cols={8}
         rows={1}
