@@ -166,6 +166,8 @@ const WeatherBox: React.FC<WeatherBoxProps> = ({ className }) => {
           weatherSymbol={weatherSymbol}
           isNight={isNight}
           precipitation={precipitation}
+          windSpeed={current.windSpeed}
+          windDirection={current.windDirection}
         />
       }
       drawer={

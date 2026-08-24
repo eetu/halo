@@ -54,6 +54,37 @@ type KindConfig = {
 const MONO = 'ui-monospace, "SF Mono", "Space Grotesk", monospace';
 const FPS = 24;
 
+// Glyphs are cheap to fill but there are hundreds per frame; a 2–3× backing
+// store multiplies every one of them for detail no one reads on a wall panel.
+function backingScale(): number {
+  const cap = window.matchMedia("(pointer: coarse)").matches ? 1.25 : 1.5;
+  return Math.min(window.devicePixelRatio || 1, cap);
+}
+
+// Soft radial sprite for the additive-glow pass, built once per colour. A live
+// createRadialGradient per stamp is the classic canvas-ASCII performance trap.
+const glowSprites = new Map<string, HTMLCanvasElement>();
+
+function glowSprite(color: string): HTMLCanvasElement {
+  const cached = glowSprites.get(color);
+  if (cached) return cached;
+  const size = 64;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const g = c.getContext("2d");
+  if (g) {
+    const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, color);
+    grad.addColorStop(0.45, `${color}66`);
+    grad.addColorStop(1, `${color}00`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+  }
+  glowSprites.set(color, c);
+  return c;
+}
+
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
@@ -270,18 +301,36 @@ type Particle = {
   phase: number;
   twinkleSpeed: number;
   swayPhase: number;
+  // 0 = far, 1 = near. Drives speed and alpha together so the fall reads as a
+  // volume of drops instead of one flat sheet — depth without touching the
+  // glyph size, which has to stay uniform (one ctx.font per frame).
+  depth: number;
 };
 
-function makeParticle(cfg: KindConfig, w: number, h: number): Particle {
+// The speeds in buildConfig were tuned against a loop that over-counted elapsed
+// time by ~1.5×, and the depth spread now scales each particle down on top of
+// that. This restores the motion that was tuned by eye, in real px/sec.
+const FALL_SPEED = 1.9;
+
+function makeParticle(
+  cfg: KindConfig,
+  w: number,
+  h: number,
+  vxRange: [number, number],
+  glyphs: string[],
+): Particle {
+  const depth = Math.random();
+  const speed = (0.55 + 0.45 * depth) * FALL_SPEED;
   return {
     x: rand(0, w),
     y: rand(0, h),
-    vx: rand(cfg.vx[0], cfg.vx[1]),
-    vy: rand(cfg.vy[0], cfg.vy[1]),
-    glyph: pick(cfg.glyphs),
+    vx: rand(vxRange[0], vxRange[1]) * speed,
+    vy: rand(cfg.vy[0], cfg.vy[1]) * speed,
+    glyph: pick(glyphs),
     phase: rand(0, Math.PI * 2),
     twinkleSpeed: rand(1.5, 3.5),
     swayPhase: rand(0, Math.PI * 2),
+    depth,
   };
 }
 
@@ -290,6 +339,10 @@ type WeatherAsciiBackgroundProps = {
   isNight: boolean;
   // current precipitation, mm/h — scales rain/snow intensity
   precipitation?: number;
+  // live wind, m/s and the meteorological direction it blows *from* — slants
+  // the fall the way it is actually blowing outside
+  windSpeed?: number;
+  windDirection?: number;
   className?: string;
 };
 
@@ -297,6 +350,8 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
   weatherSymbol,
   isNight,
   precipitation = 0,
+  windSpeed = 0,
+  windDirection = 0,
   className,
 }) => {
   const theme = useTheme();
@@ -314,6 +369,20 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
     const cfg = buildConfig(kind, isDark, precipitation);
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const phase = moonPhase();
+    // A wind *from* 270° (west) pushes the fall east, so the x component is
+    // -sin(dir). Capped: a gale shouldn't fire drops out sideways. Snow rides
+    // the wind at half strength — flakes drift, they don't get thrown.
+    const windVx =
+      -Math.sin((windDirection * Math.PI) / 180) *
+      Math.min(14, Math.max(0, windSpeed)) *
+      (kind === "snow" ? 2 : 4);
+    const vxRange: [number, number] = windSpeed > 0.3 ? [windVx - 8, windVx + 8] : cfg.vx;
+    // The streak has to lean the way the drop travels: "/" for a fall drifting
+    // left, "\" for one drifting right.
+    const glyphs =
+      cfg.motion === "fall" && (vxRange[0] + vxRange[1]) / 2 > 6
+        ? cfg.glyphs.map((g) => (g === "/" ? "\\" : g))
+        : cfg.glyphs;
     // The header/footer are transparent when this canvas is the box background,
     // so the canvas paints the card surface itself — a dim sky for clouds/fog,
     // the normal card colour otherwise.
@@ -321,6 +390,13 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
 
     let width = 0;
     let height = 0;
+    // Visible sky band. The canvas spans the whole card, but an open drawer
+    // covers everything below the header with its own opaque panel, so the sun,
+    // the moon and the horizon are placed inside the header instead of drifting
+    // down behind the drawer as the card grows. Box renders this background as
+    // its first child, so the header is the next sibling of the canvas wrapper.
+    const headerEl = parent.nextElementSibling;
+    let skyH = 0;
     let particles: Particle[] = [];
 
     // Drifting-noise field grid (clouds/fog) — see FieldCfg.
@@ -341,10 +417,44 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
     let pileCols = 0;
     let pile = new Float32Array(0);
 
+    // Additive glow stamps queued during a frame and flushed in one pass — the
+    // composite mode gets flipped once, not per stamp. Only in the dark bundle:
+    // "lighter" over a near-white card just washes it out.
+    type Glow = { x: number; y: number; r: number; color: string; alpha: number };
+    const glows: Glow[] = [];
+    const bloom = isDark;
+    const addGlow = (x: number, y: number, r: number, color: string, alpha: number) => {
+      if (bloom) glows.push({ x, y, r, color, alpha });
+    };
+    const flushGlows = () => {
+      if (!glows.length) return;
+      ctx.globalCompositeOperation = "lighter";
+      for (const g of glows) {
+        ctx.globalAlpha = g.alpha;
+        ctx.drawImage(glowSprite(g.color), g.x - g.r, g.y - g.r, g.r * 2, g.r * 2);
+      }
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      glows.length = 0;
+    };
+
+    // Fog: a few slow soft banks drifting over the glyph field, so the haze has
+    // volume instead of reading as a flat noise texture.
+    const vapour =
+      kind === "fog"
+        ? Array.from({ length: 6 }, () => ({
+            x: Math.random(),
+            y: rand(0.35, 1),
+            r: rand(0.25, 0.5),
+            speed: rand(0.006, 0.018),
+          }))
+        : [];
+
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = backingScale();
       width = parent.clientWidth;
       height = parent.clientHeight;
+      skyH = headerEl instanceof HTMLElement ? headerEl.clientHeight || height : height;
       canvas.width = Math.max(1, Math.round(width * dpr));
       canvas.height = Math.max(1, Math.round(height * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -358,7 +468,9 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
         rows = Math.max(2, Math.ceil(height / cellH) + 1);
       } else {
         const target = Math.round(((width * height) / 1000) * cfg.density);
-        particles = Array.from({ length: target }, () => makeParticle(cfg, width, height));
+        particles = Array.from({ length: target }, () =>
+          makeParticle(cfg, width, height, vxRange, glyphs),
+        );
         if (cfg.accumulate) {
           pileCols = Math.max(1, Math.ceil(width / groundW) + 1);
           pile = new Float32Array(pileCols);
@@ -379,7 +491,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
       const segs: { x: number; y: number }[] = [];
       let x = rand(width * 0.3, width * 0.7);
       let y = 0;
-      const endY = rand(height * 0.55, height * 0.85);
+      const endY = rand(skyH * 0.55, skyH * 0.85);
       while (y < endY) {
         segs.push({ x, y });
         y += 13;
@@ -400,12 +512,13 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
     let nextShoot = rand(3, 8);
 
     const drawMoon = (t: number) => {
-      const R = Math.min(width, height) * 0.22;
+      const R = Math.min(width, skyH) * 0.22;
       const cx = width * 0.82;
-      const cy = height * 0.34;
+      const cy = skyH * 0.34;
       const litColor = isDark ? "#dde4f5" : "#aab6d0";
       const darkColor = isDark ? "#4f4f4f" : "#c4c4c4";
       const tw = 0.85 + 0.15 * Math.sin(t * 0.8);
+      addGlow(cx, cy, R * 1.7, "#cfd9f5", 0.16 * tw);
       for (let gy = -R; gy <= R; gy += cfg.fontSize) {
         for (let gx = -R; gx <= R; gx += cfg.fontSize * 0.6) {
           const nx = gx / R;
@@ -429,13 +542,14 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
     };
 
     const drawSun = (t: number) => {
-      const horizonY = height * 0.8;
+      const horizonY = skyH * 0.8;
       const cx = width * 0.5;
-      const R = Math.min(width, height) * 0.3;
+      const R = Math.min(width, skyH) * 0.3;
       const cy = horizonY - R * 0.5 + Math.sin(t * 0.18) * 6; // rising/setting
       const cw = cfg.fontSize * 0.6;
       const ramp = " .:-=+*#@";
       ctx.fillStyle = cfg.color;
+      addGlow(cx, cy, R * 1.8, "#e0953a", 0.2 + 0.04 * Math.sin(t * 1.3));
 
       // corona — flickering noise-driven rays, rotating slowly above horizon
       const rot = t * 0.08;
@@ -504,6 +618,18 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
             ctx.fillText(g, px, py + cellH / 2);
           }
         }
+
+        // Soft banks over the glyph haze (fog only) — one cached sprite, no
+        // per-frame gradient.
+        if (vapour.length) {
+          const sprite = glowSprite(cfg.color);
+          for (const v of vapour) {
+            const r = v.r * width;
+            const px = ((v.x + t * v.speed) % 1.4) * (width + r * 2) - r;
+            ctx.globalAlpha = cfg.alpha * 0.22;
+            ctx.drawImage(sprite, px - r, v.y * height - r, r * 2, r * 2);
+          }
+        }
       } else {
         ctx.fillStyle = cfg.color;
         for (const p of particles) {
@@ -526,7 +652,9 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
                 landed = true;
               }
             } else if (cfg.splash && p.y >= height) {
-              if (splashes.length < 60) {
+              // Only the near drops splash — the far sheet would just clutter
+              // the ground line.
+              if (p.depth > 0.45 && splashes.length < 60) {
                 splashes.push({ x: p.x, y: height, life: 1 });
               }
               landed = true;
@@ -534,11 +662,11 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
             if (landed || p.y > height + cfg.fontSize) {
               p.y = -cfg.fontSize;
               p.x = rand(0, width);
-              p.glyph = pick(cfg.glyphs);
+              p.glyph = pick(glyphs);
             }
             if (p.x < -cfg.fontSize) p.x = width + cfg.fontSize;
             if (p.x > width + cfg.fontSize) p.x = -cfg.fontSize;
-            ctx.globalAlpha = cfg.alpha;
+            ctx.globalAlpha = cfg.alpha * (0.45 + 0.55 * p.depth);
           } else {
             const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * p.twinkleSpeed + p.phase));
             ctx.globalAlpha = cfg.alpha * tw;
@@ -593,7 +721,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
           const dir = Math.random() < 0.5 ? 1 : -1;
           shooting = {
             x: dir > 0 ? rand(0, width * 0.4) : rand(width * 0.6, width),
-            y: rand(0, height * 0.4),
+            y: rand(0, skyH * 0.4),
             vx: dir * rand(150, 230),
             vy: rand(50, 100),
             life: 1,
@@ -605,6 +733,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
           shooting.y += shooting.vy * dt;
           shooting.life -= dt * 0.9;
           ctx.fillStyle = isDark ? "#e6ecff" : "#8aa0d8";
+          addGlow(shooting.x, shooting.y, 20, "#e6ecff", Math.max(0, shooting.life) * 0.4);
           for (let i = 0; i < 7; i++) {
             const tx = shooting.x - shooting.vx * 0.03 * i;
             const ty = shooting.y - shooting.vy * 0.03 * i;
@@ -638,6 +767,11 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
             const g = dx > 4 ? "\\" : dx < -4 ? "/" : "|";
             ctx.globalAlpha = Math.max(0, bolt.life);
             ctx.fillText(g, bolt.segs[i].x, bolt.segs[i].y);
+            // Halo every other segment — enough to make the channel burn
+            // without stamping a sprite per glyph.
+            if (i % 2 === 0) {
+              addGlow(bolt.segs[i].x, bolt.segs[i].y, 26, "#ffe24a", Math.max(0, bolt.life) * 0.35);
+            }
           }
           ctx.font = `${cfg.fontSize}px ${MONO}`;
           bolt.life -= dt * 2.2;
@@ -645,6 +779,7 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
         }
       }
 
+      flushGlows();
       ctx.globalAlpha = 1;
     };
 
@@ -662,23 +797,41 @@ const WeatherAsciiBackground: React.FC<WeatherAsciiBackgroundProps> = ({
 
     const loop = (nowTs: number) => {
       raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.1, (nowTs - last) / 1000);
+      // `last` advances every tick: accumulating a delta measured from the last
+      // *drawn* frame counted the same elapsed time repeatedly, which ran the
+      // fall faster the higher the display's refresh rate.
+      const dt = Math.min(0.25, (nowTs - last) / 1000);
+      last = nowTs;
       acc += dt;
       if (acc < frame) return;
-      last = nowTs;
-      draw(acc);
+      const step = Math.min(acc, frame * 2);
       acc = 0;
+      draw(step);
     };
     raf = requestAnimationFrame(loop);
 
     const ro = new ResizeObserver(resize);
     ro.observe(parent);
+    if (headerEl instanceof HTMLElement) ro.observe(headerEl);
+
+    // A wall panel is never hidden, but a phone tab is — don't animate into a
+    // backgrounded tab.
+    const onVisibility = () => {
+      cancelAnimationFrame(raf);
+      if (!document.hidden) {
+        last = performance.now();
+        acc = 0;
+        raf = requestAnimationFrame(loop);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [kind, isDark, precipitation, theme.colors.background.main]);
+  }, [kind, isDark, precipitation, windSpeed, windDirection, theme.colors.background.main]);
 
   return (
     <canvas
