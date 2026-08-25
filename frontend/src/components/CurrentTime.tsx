@@ -24,9 +24,7 @@ const DISPLAY_FONTS = [
   },
   { family: '"Inter", system-ui, sans-serif', weight: 300, tracking: "-0.1em" },
   { family: "Nixie" },
-  { family: "Vfd" },
   { family: "SplitFlap" },
-  { family: "Lcd" },
 ];
 
 // The glowbox faces are canvases that redraw to their container (ResizeObserver),
@@ -247,9 +245,12 @@ const SplitFlapClock: React.FC<NixieClockProps> = ({ hh, mm, ss }) => {
         charset={FLAP_CHARSET}
         text={`${hh}:${mm}:${ss}`}
         // Near-black cards in dark, the bone-white printed strip of a pale Solari
-        // board in light. Don't set card/ink/board here: a colour we name is ours
-        // for good and would stop following the bundle.
+        // board in light. Don't set card/ink here: a colour we name is ours for
+        // good and would stop following the bundle. The frame is dropped instead
+        // of recoloured, so the modules sit straight on the dashboard.
         theme={glowboxTheme}
+        board={null}
+        shaded={true}
         label={`${hh}:${mm}:${ss}`}
       />
     </div>
