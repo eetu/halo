@@ -204,6 +204,7 @@ const RainMap = ({ className }: { className?: string }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseRef = useRef<L.TileLayer | null>(null);
+  const labelsRef = useRef<L.TileLayer | null>(null);
   const framesRef = useRef<Frame[]>([]);
   const [ready, setReady] = useState(false);
 
@@ -235,6 +236,14 @@ const RainMap = ({ className }: { className?: string }) => {
     map.attributionControl.addAttribution(
       'Sää © <a href="https://en.ilmatieteenlaitos.fi/open-data">FMI</a>',
     );
+    // Esri's Canvas basemap splits geometry and place labels into two services,
+    // so the labels need a pane of their own: above `overlayPane` (400) or the
+    // 0.6-opacity precipitation wash smears them, below `markerPane` (600) or
+    // they bury the home marker.
+    map.createPane("labels");
+    const labelPane = map.getPane("labels")!;
+    labelPane.style.zIndex = "450";
+    labelPane.style.pointerEvents = "none";
     mapRef.current = map;
     // Leaflet mis-sizes if the container grew after init; defer sizing and the
     // readiness signal so dependent effects see a correctly-sized map.
@@ -247,26 +256,47 @@ const RainMap = ({ className }: { className?: string }) => {
       map.remove();
       mapRef.current = null;
       baseRef.current = null;
+      labelsRef.current = null;
       framesRef.current = [];
       setReady(false);
     };
   }, [location]);
 
   // --- base map, swapped with the colour scheme ---
+  //
+  // Esri's Gray Canvas, not CARTO: the keyless cartocdn tiles now come back with
+  // an "API KEY REQUIRED" watermark burned into the PNG, and CARTO is retiring
+  // the raster tier anyway. Canvas ships geometry and place labels as separate
+  // services, so this builds two layers — `Base` at the bottom, `Reference`
+  // (transparent labels) in the `labels` pane created with the map.
+  //
+  // No `{s}` subdomains and the path is `{z}/{y}/{x}`, y before x. There is no
+  // `@2x` tile either, so `detectRetina` fetches one zoom deeper instead to keep
+  // the wall panel sharp.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
     if (baseRef.current) map.removeLayer(baseRef.current);
-    const variant = theme.mode === "dark" ? "dark_all" : "light_all";
-    const base = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`, {
-      subdomains: "abcd",
+    if (labelsRef.current) map.removeLayer(labelsRef.current);
+    const tone = theme.mode === "dark" ? "Dark" : "Light";
+    const esri = (service: string) =>
+      `https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/${service}/MapServer/tile/{z}/{y}/{x}`;
+    const base = L.tileLayer(esri(`World_${tone}_Gray_Base`), {
       maxZoom: 19,
+      detectRetina: true,
       attribution:
-        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+        'Esri, HERE, Garmin, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    });
+    const labels = L.tileLayer(esri(`World_${tone}_Gray_Reference`), {
+      pane: "labels",
+      maxZoom: 19,
+      detectRetina: true,
     });
     base.addTo(map);
     base.bringToBack();
+    labels.addTo(map);
     baseRef.current = base;
+    labelsRef.current = labels;
   }, [theme.mode, ready]);
 
   // --- saved-location marker, so the centre point stays findable under the
