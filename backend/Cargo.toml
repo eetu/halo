@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 actix-web = "4"
 actix-cors = "0.7"
-actix-web-lab = "0.26"
+actix-web-lab = "0.27"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"], default-features = false }
