@@ -235,15 +235,11 @@ fn parse_timeseries_xml(xml: &str) -> Result<ParameterMap, FmiError> {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
                 let ln = e.local_name();
-                let local_name = std::str::from_utf8(ln.as_ref()).unwrap_or_default();
-                match local_name {
+                match ln.as_ref() {
                     "MeasurementTimeseries" => {
                         for attr in e.attributes().flatten() {
-                            let kn = attr.key.local_name();
-                            let key = std::str::from_utf8(kn.as_ref()).unwrap_or_default();
-                            if key == "id" {
-                                let id = std::str::from_utf8(&attr.value).unwrap_or_default();
-                                if let Some(name) = extract_param_name(id) {
+                            if attr.key.local_name().as_ref() == "id" {
+                                if let Some(name) = extract_param_name(attr.value.as_ref()) {
                                     current_param = Some(name);
                                 }
                             }
@@ -256,8 +252,7 @@ fn parse_timeseries_xml(xml: &str) -> Result<ParameterMap, FmiError> {
             }
             Ok(Event::End(ref e)) => {
                 let ln = e.local_name();
-                let local_name = std::str::from_utf8(ln.as_ref()).unwrap_or_default();
-                match local_name {
+                match ln.as_ref() {
                     "MeasurementTimeseries" => {
                         current_param = None;
                     }
@@ -270,18 +265,16 @@ fn parse_timeseries_xml(xml: &str) -> Result<ParameterMap, FmiError> {
                 }
             }
             Ok(Event::Text(ref e)) => {
-                if let Ok(text) = std::str::from_utf8(e.as_ref()) {
-                    let text = text.trim().to_string();
-                    if in_time {
-                        current_time = Some(text);
-                    } else if in_value {
-                        if let (Some(param), Some(time_str)) = (&current_param, &current_time) {
-                            if text != "NaN" {
-                                if let (Ok(time), Ok(val)) =
-                                    (time_str.parse::<DateTime<Utc>>(), text.parse::<f64>())
-                                {
-                                    params.entry(param.clone()).or_default().insert(time, val);
-                                }
+                let text = e.as_ref().trim().to_string();
+                if in_time {
+                    current_time = Some(text);
+                } else if in_value {
+                    if let (Some(param), Some(time_str)) = (&current_param, &current_time) {
+                        if text != "NaN" {
+                            if let (Ok(time), Ok(val)) =
+                                (time_str.parse::<DateTime<Utc>>(), text.parse::<f64>())
+                            {
+                                params.entry(param.clone()).or_default().insert(time, val);
                             }
                         }
                     }
