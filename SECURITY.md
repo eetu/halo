@@ -41,11 +41,6 @@ exposing the app beyond the LAN.
   deliberately **not** in `../raspi`'s `network_restrict.RESTRICTED` — unlike the
   LAN-only siblings it needs egress for those upstreams.
 
-- **`POST /api/pv/forecast` is an unauthenticated write.** The cron-driven
-  `scripts/refresh-pv-forecast.sh` upserts ~66 rows through it. Any LAN client
-  can also write those rows; the blast radius is a wrong PV forecast until the
-  next 3-hourly refresh overwrites it.
-
 ## Secrets
 
 All secrets are injected at runtime via env, never baked into the image or

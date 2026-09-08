@@ -1,6 +1,11 @@
 use std::env;
 
+use crate::pv::forecast::ArraySpec;
+
 pub struct Settings {
+    /// The PV array to forecast for. `None` disables the forecast loop. Its
+    /// position is not here — that is the house position in `user_settings`.
+    pub pv_array: Option<ArraySpec>,
     pub tomorrow_io_api_key: String,
     pub tomorrow_io_base_url: String,
     pub fmi_base_url: String,
@@ -26,6 +31,7 @@ pub struct Settings {
 impl Settings {
     pub fn test_defaults() -> Self {
         Self {
+            pv_array: None,
             tomorrow_io_api_key: String::new(),
             tomorrow_io_base_url: "https://api.tomorrow.io".into(),
             fmi_base_url: "https://opendata.fmi.fi/wfs".into(),
@@ -49,6 +55,7 @@ impl Settings {
 
     pub fn from_env() -> Self {
         Self {
+            pv_array: pv_array_from_env(),
             tomorrow_io_api_key: env::var("TOMORROW_IO_API_KEY").unwrap_or_default(),
             tomorrow_io_base_url: env::var("TOMORROW_IO_BASE_URL")
                 .unwrap_or_else(|_| "https://api.tomorrow.io".into()),
@@ -85,4 +92,63 @@ impl Settings {
                 .unwrap_or_else(|_| "https://dashboard.elering.ee".into()),
         }
     }
+}
+
+/// Read the PV array from the environment.
+///
+/// All three values are required together — a partial set is a misconfiguration
+/// rather than a reason to guess, so it is reported and the forecast stays off.
+fn pv_array_from_env() -> Option<ArraySpec> {
+    const KEYS: [&str; 3] = ["PV_TILT", "PV_AZIMUTH", "PV_KW"];
+
+    let values: Vec<Option<f64>> = KEYS
+        .iter()
+        .map(|key| {
+            env::var(key)
+                .ok()
+                .and_then(|v| v.trim().parse::<f64>().ok())
+        })
+        .collect();
+
+    if values.iter().all(Option::is_none) {
+        return None;
+    }
+
+    let missing: Vec<&str> = KEYS
+        .iter()
+        .zip(&values)
+        .filter(|(_, value)| value.is_none())
+        .map(|(key, _)| *key)
+        .collect();
+    if !missing.is_empty() {
+        tracing::warn!(
+            "PV forecast disabled: {} not set or not a number",
+            missing.join(", ")
+        );
+        return None;
+    }
+
+    let array = ArraySpec {
+        tilt: values[0].unwrap(),
+        azimuth: values[1].unwrap(),
+        rated_power_kw: values[2].unwrap(),
+    };
+
+    if !(0.0..=90.0).contains(&array.tilt) || !(0.0..=360.0).contains(&array.azimuth) {
+        tracing::warn!(
+            "PV forecast disabled: PV_TILT must be 0-90 and PV_AZIMUTH 0-360 (got {}, {})",
+            array.tilt,
+            array.azimuth
+        );
+        return None;
+    }
+    if array.rated_power_kw <= 0.0 {
+        tracing::warn!(
+            "PV forecast disabled: PV_KW must be positive (got {})",
+            array.rated_power_kw
+        );
+        return None;
+    }
+
+    Some(array)
 }
