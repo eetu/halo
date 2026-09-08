@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 
-use super::models::{FmiForecastPoint, FmiObservation, FmiWeatherData};
+use super::models::{FmiForecastPoint, FmiObservation, FmiRadiationPoint, FmiWeatherData};
 
 #[derive(Debug, thiserror::Error)]
 pub enum FmiError {
@@ -88,6 +88,45 @@ pub async fn fetch_harmonie(
             cloud_cover: get_val(&params, "TotalCloudCover", &t),
             humidity: get_val(&params, "Humidity", &t),
             weather_symbol: get_val(&params, "WeatherSymbol3", &t).map(|v| v as i32),
+        })
+        .collect())
+}
+
+/// Fetch the Harmonie radiation forecast that drives the PV model.
+///
+/// Reaches six hours into the past as well as forward, so a forecast computed at
+/// midday still carries the morning's output for the day's running total.
+pub async fn fetch_radiation(
+    client: &reqwest::Client,
+    base_url: &str,
+    lat: &str,
+    lon: &str,
+) -> Result<Vec<FmiRadiationPoint>, FmiError> {
+    let now = chrono::Utc::now();
+    let start = (now - chrono::Duration::hours(6)).format("%Y-%m-%dT%H:00:00Z");
+    let end = (now + chrono::Duration::hours(64)).format("%Y-%m-%dT%H:00:00Z");
+
+    let url = format!(
+        "{base_url}?service=WFS&version=2.0.0&request=getFeature\
+         &storedquery_id=fmi::forecast::harmonie::surface::point::timevaluepair\
+         &latlon={lat},{lon}\
+         &parameters=Temperature,WindSpeedMS,RadiationGlobalAccumulation,RadiationNetSurfaceSWAccumulation,RadiationSWAccumulation\
+         &timestep=60\
+         &starttime={start}&endtime={end}"
+    );
+
+    let xml = client.get(&url).send().await?.text().await?;
+    let params = parse_timeseries_xml(&xml)?;
+
+    Ok(collect_times(&params)
+        .into_iter()
+        .map(|t| FmiRadiationPoint {
+            time: t,
+            temperature: get_val(&params, "Temperature", &t),
+            wind_speed: get_val(&params, "WindSpeedMS", &t),
+            global_accumulation: get_val(&params, "RadiationGlobalAccumulation", &t),
+            net_shortwave_accumulation: get_val(&params, "RadiationNetSurfaceSWAccumulation", &t),
+            direct_accumulation: get_val(&params, "RadiationSWAccumulation", &t),
         })
         .collect())
 }

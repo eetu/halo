@@ -50,8 +50,8 @@ pub fn upsert_forecast(conn: &Connection, forecast: &PvForecast) -> rusqlite::Re
 
 pub fn read_forecast(conn: &Connection) -> rusqlite::Result<Option<PvForecast>> {
     // Include up to 24h of already-passed points so the UI can still render
-    // today's full-day forecast after the pusher's sliding window has eroded
-    // the morning hours. The frontend decides when to hide today (noon cutoff).
+    // today's full-day forecast after FMI's forecast window has moved past the
+    // morning hours. The frontend decides when to hide today (noon cutoff).
     let mut stmt = conn.prepare(
         "SELECT time, output_w, temperature, wind, module_temp, generated_at
          FROM pv_forecast_points

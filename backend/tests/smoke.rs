@@ -44,6 +44,7 @@ fn test_app(
 
 fn test_settings_with_mock(mock_url: &str) -> Settings {
     Settings {
+        pv_array: None,
         tomorrow_io_api_key: "test-key".into(),
         tomorrow_io_base_url: mock_url.into(),
         fmi_base_url: mock_url.into(),

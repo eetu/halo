@@ -12,7 +12,7 @@ backend/         actix-web 4 — Hue/FMI/SolisCloud clients, SQLite (WAL), polli
 frontend/        Vite + React 19 + Emotion; views are switched by App.tsx state,
                  not a router
 justfile         task runner — `just dev` runs backend (bacon) + frontend together
-scripts/         refresh-pv-forecast.sh (cron-driven PV upsert) + misc
+scripts/         compare-pv-forecast.py (PV model cross-check) + misc
 documentation/   design notes
 .claude/skills/  halo-app-design skill (visual language, brand)
 ```
@@ -27,9 +27,15 @@ Per-area instructions in `backend/CLAUDE.md` and `frontend/CLAUDE.md`.
 - **SQLite + WAL, single `Mutex<Connection>`.** Tables: `sensor_readings`,
   `solis_readings`, `pv_forecast_points`, `user_settings`.
 - **Background loops.** Sensor temps recorded every 5 min; SolisCloud polled
-  every 5 min (offline `status=2` skipped so gaps stay visible); PV forecast
-  refreshed every 3 h via the external `fmi-pv-forecast-runner` CLI, upserted
-  through `POST /api/pv/forecast` (~66 hourly rows).
+  every 5 min (offline `status=2` skipped so gaps stay visible); PV output
+  modelled from the FMI radiation forecast every 3 h in `backend/src/pv/forecast/`
+  (~66 hourly rows, off unless `PV_TILT`/`PV_AZIMUTH`/`PV_KW` are set). The
+  array's mounting is env; its **position is the saved house position** in
+  `user_settings`, shared with the weather and sunrise views — don't add a
+  second one. The loop is the table's only writer.
+  `scripts/compare-pv-forecast.py` diffs the model against
+  [fmi-pv-forecast-runner](../fmi-pv-forecast-runner), the Python implementation
+  it was ported from, without either touching the database.
 - **History retention.** Pruned per `HALO_HISTORY_RETENTION_DAYS` (default 0 =
   disabled).
 - **Hue events.** `GET /api/hue/events` is an SSE stream off a broadcast channel

@@ -49,11 +49,15 @@ SOLIS_KEY_SECRET=
 SOLIS_STATION_ID=
 SOLIS_BASE_URL=             # default https://www.soliscloud.com:13333
 
+# PV forecast — how the panels are mounted. All three required together, or
+# the forecast stays off. Where they are comes from the saved house position.
+PV_TILT=                    # panel tilt from horizontal, 0-90
+PV_AZIMUTH=                 # panel facing, 0-360 (180 = south)
+PV_KW=                      # nominal system power in kW
+
 ```
 
-PV forecast vars (`PV_LAT`, `PV_LON`, `PV_TILT`, `PV_AZIMUTH`, `PV_KW`) are
-consumed by `scripts/refresh-pv-forecast.sh` — see the "PV forecast"
-section below for details.
+See the "PV forecast" section below for what the model does with these.
 
 ### Pairing with the Hue bridge
 
@@ -115,41 +119,50 @@ GET /api/history/solis?hours=<n>&max_points=<m>
 
 ## PV forecast
 
-The backend exposes `GET/POST /api/pv/forecast`. The actual forecast is
-produced by an external one-shot CLI maintained in a separate repository,
-[fmi-pv-forecast-runner](https://github.com/eetu/fmi-pv-forecast-runner),
-which wraps the
-[FMI open PV forecast](https://github.com/fmidev/fmi-open-pv-forecast-packaged)
-package and emits the next ~66 hours of hourly output as JSON on stdout.
+The backend models PV output itself, in `backend/src/pv/forecast/`. It reads
+the Harmonie radiation forecast from FMI and runs it through the standard
+chain — Perez-Driesse transposition onto the plane of the array, Martin & Ruiz
+reflection losses, King module temperature, Huld DC output — producing ~66
+hourly points served from `GET /api/pv/forecast`.
 
-Refreshing the forecast is a two-step shell pipeline: run the CLI, pipe
-its stdout to `POST /api/pv/forecast`. `scripts/refresh-pv-forecast.sh`
-wraps both:
+Set `PV_TILT`, `PV_AZIMUTH` and `PV_KW` in the backend environment and a refresh
+loop runs every 3 hours, matching the interval Harmonie itself is rerun at. All
+three are required together; with none set the forecast is simply off, and with
+some set the backend logs which are missing and leaves it off rather than
+guessing.
+
+The site position is deliberately *not* among them. The model reads the house
+position saved in `user_settings` — the one set from the dashboard's location
+form, which the weather and sunrise views already use — so the pin is set once
+and everything follows it. Until it is set the loop logs that it is waiting and
+does nothing else.
+
+To see a forecast without starting the server (no database, so this one wants
+`PV_LAT` and `PV_LON` too):
 
 ```bash
-# Auto-detect: uses local uv repo if ../fmi-pv-forecast-runner/ is checked out,
-# otherwise pulls the published Docker image.
-HALO_PV_ENV_FILE=.env.pv ./scripts/refresh-pv-forecast.sh
-
-# Force a specific mode:
-./scripts/refresh-pv-forecast.sh uv
-./scripts/refresh-pv-forecast.sh docker
+cd backend && cargo run --example pv_forecast
 ```
 
-Required env vars (place in `$HALO_PV_ENV_FILE` or export beforehand):
-`PV_LAT`, `PV_LON`, `PV_TILT`, `PV_AZIMUTH`, `PV_KW`. Optional overrides:
-`HALO_BACKEND_URL` (default `http://localhost:3000`), `PV_RUNNER_PATH`,
-`PV_RUNNER_IMAGE`.
+### Relationship to fmi-pv-forecast-runner
 
-### Cold-start and periodic refresh
+The model is a port of
+[fmi-pv-forecast-runner](https://github.com/eetu/fmi-pv-forecast-runner), which
+wrapped the Python
+[FMI open PV forecast](https://github.com/fmidev/fmi-open-pv-forecast-packaged)
+package. The runner is still useful as a second opinion:
 
-Run the script once manually to populate the database after the first
-deploy. For a 3-hour refresh cadence (matching the upstream forecast
-update interval), add a host cron entry:
-
-```cron
-17 */3 * * * cd /opt/halo && HALO_PV_ENV_FILE=/opt/halo/.env.pv ./scripts/refresh-pv-forecast.sh >>/var/log/halo-pv.log 2>&1
+```bash
+PV_ENV_FILE=../fmi-pv-forecast-runner/.env scripts/compare-pv-forecast.py
 ```
+
+It runs both against live FMI and diffs them per hour, neither touching the
+database. Output agrees to within a few parts in a million — the residual is
+that the two use different NREL solar position implementations, which differ in
+their last digits.
+
+Point counts differ: where an hour's radiation is missing from the FMI response
+the runner publishes it as `0 W`, and this model omits the hour.
 
 ### Storage and rendering
 

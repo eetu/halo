@@ -51,7 +51,6 @@ pub struct AppState {
         solis::handlers::get_data,
         solis::handlers::get_history,
         pv::handlers::get_forecast,
-        pv::handlers::post_forecast,
         reserve::handlers::get_reserve,
         spot::handlers::get_spot,
         radar::handlers::frames,
@@ -237,11 +236,7 @@ pub fn create_app(
                 )
                 .service(web::scope("/solis").route("", web::get().to(solis::handlers::get_data)))
                 .service(
-                    web::scope("/pv").service(
-                        web::resource("/forecast")
-                            .route(web::get().to(pv::handlers::get_forecast))
-                            .route(web::post().to(pv::handlers::post_forecast)),
-                    ),
+                    web::scope("/pv").route("/forecast", web::get().to(pv::handlers::get_forecast)),
                 )
                 .service(
                     web::scope("/reserve").route("", web::get().to(reserve::handlers::get_reserve)),
@@ -348,6 +343,7 @@ pub async fn run_server() -> std::io::Result<()> {
     hue::events::start_stream_loop(state.clone());
     storage::start_recording_loop(state.clone());
     solis::recording::start(state.clone());
+    pv::recording::start(state.clone());
 
     tracing::info!("Starting server on port {port}");
 
