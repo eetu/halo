@@ -225,9 +225,9 @@ dependencies = [
 
 [[package]]
 name = "actix-web-lab"
-version = "0.27.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d113865590e5f97352dd9194edc9cfc10fda1716df38e60a4844e6dbdf2b240b"
+checksum = "fa94d1f993226d9deb081514d4cf57333b4cdfe4be7a78a7f5f68f23cc45e6ef"
 dependencies = [
  "actix-http",
  "actix-router",
@@ -263,9 +263,9 @@ dependencies = [
 
 [[package]]
 name = "actix-web-lab-derive"
-version = "0.27.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67713d6e3867c3327f081a10211c56bc9b749b041d268a6cc15599356c1945f1"
+checksum = "be816c3dd3bd37625fbf969c1f3728209162ee76ddf0904f1e19b7f0c175431f"
 dependencies = [
  "quote",
  "syn 3.0.3",
@@ -1384,9 +1384,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
 dependencies = [
  "either",
 ]
