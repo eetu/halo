@@ -12,6 +12,7 @@ import {
   DARK_THRESHOLD_MAX,
   DARK_THRESHOLD_MIN,
   formatLux,
+  sensitivityEnds,
   sensitivityLabel,
 } from "../hue/motion";
 import { mq } from "../mq";
@@ -361,36 +362,52 @@ type LevelsProps = {
 
 const Levels: FC<LevelsProps> = ({ value, max, onChange }) => {
   const theme = useTheme();
+  const [low, high] = sensitivityEnds(max);
   return (
-    <div role="radiogroup" aria-label="herkkyys" css={{ display: "flex", gap: 4 }}>
-      {Array.from({ length: max + 1 }, (_, level) => {
-        const selected = level === value;
-        return (
-          <button
-            key={level}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            aria-label={sensitivityLabel(level, max)}
-            onClick={() => {
-              if (!selected) onChange(level);
-            }}
-            css={{
-              width: 40,
-              height: 36,
-              border: `1px solid ${selected ? theme.colors.activity.on : theme.colors.border}`,
-              borderRadius: theme.border.radiusPill,
-              backgroundColor: selected ? theme.colors.activity.onSoft : "transparent",
-              color: selected ? theme.colors.activity.on : theme.colors.text.main,
-              font: "inherit",
-              fontVariantNumeric: "tabular-nums",
-              cursor: "pointer",
-            }}
-          >
-            {level + 1}
-          </button>
-        );
-      })}
+    <div css={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <div role="radiogroup" aria-label="herkkyys" css={{ display: "flex", gap: 4 }}>
+        {Array.from({ length: max + 1 }, (_, level) => {
+          const selected = level === value;
+          return (
+            <button
+              key={level}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              aria-label={sensitivityLabel(level, max)}
+              onClick={() => {
+                if (!selected) onChange(level);
+              }}
+              css={{
+                width: 40,
+                height: 36,
+                border: `1px solid ${selected ? theme.colors.activity.on : theme.colors.border}`,
+                borderRadius: theme.border.radiusPill,
+                backgroundColor: selected ? theme.colors.activity.onSoft : "transparent",
+                color: selected ? theme.colors.activity.on : theme.colors.text.main,
+                font: "inherit",
+                fontVariantNumeric: "tabular-nums",
+                cursor: "pointer",
+              }}
+            >
+              {level + 1}
+            </button>
+          );
+        })}
+      </div>
+      <div
+        aria-hidden
+        css={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 8,
+          ...theme.typography.caption,
+          color: theme.colors.text.muted,
+        }}
+      >
+        <span>{`← ${low}`}</span>
+        <span>{`${high} →`}</span>
+      </div>
     </div>
   );
 };

@@ -21,3 +21,9 @@ const SENSITIVITY_WORDS: Record<number, string[]> = {
 
 export const sensitivityLabel = (value: number, max: number) =>
   SENSITIVITY_WORDS[max]?.[value] ?? `${value + 1}/${max + 1}`;
+
+/** The scale's two ends, so the direction shows before a level is picked. */
+export const sensitivityEnds = (max: number): [string, string] => {
+  const words = SENSITIVITY_WORDS[max];
+  return words ? [words[0], words[words.length - 1]] : ["matala", "korkea"];
+};

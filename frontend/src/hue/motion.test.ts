@@ -4,6 +4,7 @@ import {
   formatLux,
   levelToLux,
   luxToLevel,
+  sensitivityEnds,
   sensitivityLabel,
 } from "./motion";
 
@@ -31,5 +32,16 @@ describe("sensitivityLabel", () => {
 
   test("falls back to a fraction on an unknown scale", () => {
     expect(sensitivityLabel(1, 3)).toBe("2/4");
+  });
+});
+
+describe("sensitivityEnds", () => {
+  test("names both ends of each scale", () => {
+    expect(sensitivityEnds(2)).toEqual(["matala", "korkea"]);
+    expect(sensitivityEnds(4)).toEqual(["hyvin matala", "hyvin korkea"]);
+  });
+
+  test("still shows the direction on an unknown scale", () => {
+    expect(sensitivityEnds(3)).toEqual(["matala", "korkea"]);
   });
 });
