@@ -5,12 +5,12 @@ __metadata:
   version: 10
   cacheKey: 10
 
-"@anarkisti/biome-config@npm:^1.0.0-rc.2":
-  version: 1.0.0-rc.2
-  resolution: "@anarkisti/biome-config@npm:1.0.0-rc.2"
+"@anarkisti/biome-config@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "@anarkisti/biome-config@npm:1.0.0"
   peerDependencies:
     "@biomejs/biome": ^2.5.0
-  checksum: 10/1aa395b7ea2dc87e28feffe95327b52b9ec4340d6f3884ad9e5c2c087707fba11c3b1a78c816018ed84eb463f19b2f4b5d625410992ddc942597d50119a1a872
+  checksum: 10/c13a1cc3ea44333a1623c21967ffcdf6a76f0962dd503b90eaeebdf89dd6ee9006d1322aae94ca0fe5c855e2272c5b4d42d470706a5d8c97e950e60f9c0c3b77
   languageName: node
   linkType: hard
 
@@ -1447,7 +1447,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "halo-frontend@workspace:."
   dependencies:
-    "@anarkisti/biome-config": "npm:^1.0.0-rc.2"
+    "@anarkisti/biome-config": "npm:^1.0.0"
     "@biomejs/biome": "npm:^2.5.15"
     "@emotion/react": "npm:^11.14.0"
     "@floating-ui/react": "npm:^0.27.20"
