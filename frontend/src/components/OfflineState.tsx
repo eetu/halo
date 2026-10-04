@@ -1,7 +1,7 @@
 import { useTheme } from "@emotion/react";
 import { formatDistanceToNow } from "date-fns";
 import { fi } from "date-fns/locale/fi";
-import { FC } from "react";
+import type { FC } from "react";
 
 import Icon from "./Icon";
 

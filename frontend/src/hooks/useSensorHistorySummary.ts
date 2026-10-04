@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import useSWR from "swr";
 
 import { api, fetcher } from "../api";
-import { Sensor } from "../types/hue";
+import type { Sensor } from "../types/hue";
 
 type Reading = {
   sensorId: string;

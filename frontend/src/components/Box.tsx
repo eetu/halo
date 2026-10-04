@@ -1,5 +1,6 @@
 import { useTheme } from "@emotion/react";
-import React, { useRef, useState } from "react";
+import type React from "react";
+import { useRef, useState } from "react";
 
 import Icon from "./Icon";
 import Spinner from "./Spinner";

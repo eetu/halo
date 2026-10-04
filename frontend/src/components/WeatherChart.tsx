@@ -3,16 +3,17 @@ import {
   BarController,
   BarElement,
   CategoryScale,
+  type ChartData,
   Chart as ChartJS,
-  ChartData,
-  ChartOptions,
+  type ChartOptions,
   LinearScale,
   LineController,
   LineElement,
   PointElement,
 } from "chart.js";
-import ChartDataLabels, { Context } from "chartjs-plugin-datalabels";
-import React, { createElement, useMemo, useState } from "react";
+import ChartDataLabels, { type Context } from "chartjs-plugin-datalabels";
+import type React from "react";
+import { createElement, useMemo, useState } from "react";
 import { Chart } from "react-chartjs-2";
 import { useMediaQuery } from "usehooks-ts";
 

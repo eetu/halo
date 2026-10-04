@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { api } from "../api";
-import { Sensor } from "../types/hue";
+import type { Sensor } from "../types/hue";
 
 // Thresholds in °C for trend classification
 const SMALL_CHANGE = 0.5;

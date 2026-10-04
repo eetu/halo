@@ -1,4 +1,4 @@
-import { HourlyForecast } from "../../types/weather/fmi";
+import type { HourlyForecast } from "../../types/weather/fmi";
 
 type Segment = {
   title: "aamu" | "päivä" | "ilta" | "yö";

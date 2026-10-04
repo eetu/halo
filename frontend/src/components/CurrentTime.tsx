@@ -2,7 +2,8 @@ import { useTheme } from "@emotion/react";
 import { LcdModule, NixieTube, SplitFlap, type VfdElement, VfdPanel } from "@glowbox/react";
 import { format } from "date-fns";
 import { fi } from "date-fns/locale/fi";
-import React, { memo } from "react";
+import type React from "react";
+import { memo } from "react";
 
 import useCurrentTime from "../hooks/useCurrentTime";
 import useGlowboxTheme from "../hooks/useGlowboxTheme";

@@ -3,9 +3,9 @@ import "chartjs-adapter-date-fns";
 import { useTheme } from "@emotion/react";
 import {
   CategoryScale,
+  type ChartData,
   Chart as ChartJS,
-  ChartData,
-  ChartOptions,
+  type ChartOptions,
   Filler,
   Legend,
   LinearScale,
@@ -17,8 +17,7 @@ import {
 } from "chart.js";
 import { format } from "date-fns";
 import { fi } from "date-fns/locale/fi";
-import { memo } from "react";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Chart } from "react-chartjs-2";
 
 import { api } from "../api";

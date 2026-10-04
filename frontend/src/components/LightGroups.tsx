@@ -1,10 +1,10 @@
 import { keyframes, useTheme } from "@emotion/react";
-import { FC, memo, PointerEvent, useCallback, useRef, useState } from "react";
+import { type FC, memo, type PointerEvent, useCallback, useRef, useState } from "react";
 
 import { api } from "../api";
 import useScreenshotMode, { anonymize } from "../hooks/useScreenshotMode";
 import { mq } from "../mq";
-import { Group } from "../types/hue";
+import type { Group } from "../types/hue";
 import Icon from "./Icon";
 
 const bulbGlow = keyframes`

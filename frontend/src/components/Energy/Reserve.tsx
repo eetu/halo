@@ -3,9 +3,9 @@ import {
   BarController,
   BarElement,
   CategoryScale,
+  type ChartData,
   Chart as ChartJS,
-  ChartData,
-  ChartOptions,
+  type ChartOptions,
   Legend,
   LinearScale,
   LineController,
@@ -20,7 +20,7 @@ import { Chart } from "react-chartjs-2";
 
 import { api } from "../../api";
 import { mq } from "../../mq";
-import { ReserveResponse } from "../../types/reserve";
+import type { ReserveResponse } from "../../types/reserve";
 
 ChartJS.register(
   BarController,

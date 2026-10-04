@@ -1,7 +1,7 @@
 import { useTheme } from "@emotion/react";
 import { format } from "date-fns";
 import { fi } from "date-fns/locale/fi";
-import { type LucideProps } from "lucide-react";
+import type { LucideProps } from "lucide-react";
 import { createElement, memo, useState } from "react";
 import useSWR from "swr";
 
@@ -9,8 +9,8 @@ import { api, jsonFetcher } from "../api";
 import useLocationSettings from "../hooks/useLocationSettings";
 import useScreenshotMode from "../hooks/useScreenshotMode";
 import { mq } from "../mq";
-import { PvForecast } from "../types/pv";
-import { WeatherData } from "../types/weather/fmi";
+import type { PvForecast } from "../types/pv";
+import type { WeatherData } from "../types/weather/fmi";
 import { weatherBorderColor } from "../weather/asciiSky";
 import { getFmiWeatherDescription, getFmiWeatherIcon } from "../weather/fmi/icons";
 import { getFmiTemperatureSegments } from "../weather/fmi/utils";

@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { useMediaQuery } from "usehooks-ts";
 
 import { api, fetcher } from "../../api";
-import { SolisData } from "../../types/solis";
+import type { SolisData } from "../../types/solis";
 import NeonNode, { type NodeGlyph } from "./NeonNode";
 
 // Energy "packets" gliding along a conduit. Count, speed and opacity all scale
@@ -25,6 +25,7 @@ const FlowParticles: React.FC<{
   return (
     <>
       {Array.from({ length: count }, (_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: identical particles that never reorder
         <circle key={i} r={3.5} fill={color} opacity={opacity}>
           <animateMotion
             dur={`${dur}s`}

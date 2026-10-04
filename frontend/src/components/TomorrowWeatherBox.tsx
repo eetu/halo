@@ -1,12 +1,12 @@
 import { useTheme } from "@emotion/react";
 import { format } from "date-fns";
 import { fi } from "date-fns/locale/fi";
-import { type LucideProps } from "lucide-react";
+import type { LucideProps } from "lucide-react";
 import { createElement } from "react";
 import useSWR from "swr";
 
 import { api, fetcher } from "../api";
-import { TomorrowWeatherData } from "../types/weather/tomorrow";
+import type { TomorrowWeatherData } from "../types/weather/tomorrow";
 import { getWeatherIcon } from "../weather/tomorrow/icons";
 import { getTemperatureSegments } from "../weather/tomorrow/utils";
 import Arrow from "./Arrow";

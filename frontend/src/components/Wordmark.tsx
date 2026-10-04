@@ -1,5 +1,6 @@
 import { useTheme } from "@emotion/react";
-import React, { memo } from "react";
+import type React from "react";
+import { memo } from "react";
 
 import { mq } from "../mq";
 

@@ -3,9 +3,9 @@ import "chartjs-adapter-date-fns";
 import { useTheme } from "@emotion/react";
 import {
   CategoryScale,
+  type ChartData,
   Chart as ChartJS,
-  ChartData,
-  ChartOptions,
+  type ChartOptions,
   Filler,
   Legend,
   LinearScale,
@@ -22,7 +22,7 @@ import { Chart } from "react-chartjs-2";
 
 import { api } from "../../api";
 import { mq } from "../../mq";
-import { SolisReading } from "../../types/solis";
+import type { SolisReading } from "../../types/solis";
 
 ChartJS.register(
   CategoryScale,

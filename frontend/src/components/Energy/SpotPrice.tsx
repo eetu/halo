@@ -1,11 +1,17 @@
-import { Theme, useTheme } from "@emotion/react";
-import { BarElement, CategoryScale, Chart as ChartJS, ChartOptions, LinearScale } from "chart.js";
+import { type Theme, useTheme } from "@emotion/react";
+import {
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  type ChartOptions,
+  LinearScale,
+} from "chart.js";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Bar } from "react-chartjs-2";
 
 import { api } from "../../api";
 import { mq } from "../../mq";
-import { HourPrice, SpotResponse } from "../../types/spot";
+import type { HourPrice, SpotResponse } from "../../types/spot";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale);
 
@@ -108,6 +114,7 @@ const PriceChart: React.FC<{
   // freshly rendered selected-bar highlight rather than the previous frame.
   // (Touch handling and the loupe geometry live in the parent grid; this just
   // paints the magnifier for whichever chart is currently being scrubbed.)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedHour re-runs the redraw once its highlight has rendered
   useEffect(() => {
     const canvas = containerRef.current?.querySelector("canvas") ?? null;
     if (loupe && canvas && loupeRef.current) {

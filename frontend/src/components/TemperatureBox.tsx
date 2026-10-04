@@ -1,12 +1,12 @@
 import { useTheme } from "@emotion/react";
 import classNames from "classnames";
-import { FC, memo } from "react";
+import { type FC, memo } from "react";
 
 import useScreenshotMode, { anonymize } from "../hooks/useScreenshotMode";
 import useSensorHistorySummary from "../hooks/useSensorHistorySummary";
 import useSensorTrend from "../hooks/useSensorTrend";
 import { mq } from "../mq";
-import { Sensor } from "../types/hue";
+import type { Sensor } from "../types/hue";
 import Box, { DrawerRow } from "./Box";
 import Icon from "./Icon";
 import OfflineState from "./OfflineState";

@@ -4,7 +4,7 @@ import useSWR from "swr";
 
 import { api, fetcher } from "../../api";
 import { mq } from "../../mq";
-import { SolisData, SolisReading } from "../../types/solis";
+import type { SolisData, SolisReading } from "../../types/solis";
 
 type Aggregates = {
   exportKwh: number;
