@@ -6,6 +6,7 @@ import {
   luxToLevel,
   sensitivityEnds,
   sensitivityLabel,
+  thresholdFraction,
 } from "./motion";
 
 describe("light level", () => {
@@ -16,6 +17,14 @@ describe("light level", () => {
   test("slider spans 1–1000 lx", () => {
     expect(DARK_THRESHOLD_MIN).toBe(1);
     expect(DARK_THRESHOLD_MAX).toBe(30001);
+  });
+
+  test("places a reading along the slider, pinned at the ends", () => {
+    expect(thresholdFraction(luxToLevel(1))).toBe(0);
+    expect(thresholdFraction(luxToLevel(1000))).toBe(1);
+    expect(thresholdFraction(luxToLevel(Math.sqrt(1000)))).toBeCloseTo(0.5);
+    expect(thresholdFraction(0)).toBe(0);
+    expect(thresholdFraction(40000)).toBe(1);
   });
 
   test("formats in Finnish, with a decimal only below 10 lx", () => {

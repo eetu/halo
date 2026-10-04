@@ -95,6 +95,15 @@ const applyEvent = (data: Response, event: HueLiveEvent): Response => {
           m.sensitivity ? { ...m, sensitivity: { ...m.sensitivity, value: event.sensitivity } } : m,
         ),
       };
+    case "light_level":
+      return {
+        ...data,
+        motionUnits: data.motionUnits.map((u) =>
+          u.daylight?.lightLevelServiceId === event.id
+            ? { ...u, daylight: { ...u.daylight, lightLevel: event.level } }
+            : u,
+        ),
+      };
     case "daylight":
       return {
         ...data,

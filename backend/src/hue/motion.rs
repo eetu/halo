@@ -19,6 +19,10 @@ const MOTION_SERVICE_RID_POINTER: &str = "/motion/motion_service/rid";
 pub const DARK_THRESHOLD_POINTER: &str =
     "/light_level/daylight/daylight_sensitivity/settings/dark_threshold";
 
+/// Where a motion automation names the light reading it compares against.
+const LIGHT_LEVEL_SERVICE_RID_POINTER: &str =
+    "/light_level/daylight/daylight_sensitivity/light_level_service/rid";
+
 /// The `dark_threshold` of an automation that ignores daylight: the top of the
 /// light level scale, so it is always dark.
 pub const DAYLIGHT_OFF: u32 = 65534;
@@ -30,6 +34,8 @@ pub struct MotionInputs<'a> {
     pub grouped: &'a [GroupedMotionResource],
     pub service_groups: &'a [ServiceGroupResource],
     pub automations: &'a [BehaviorInstanceResource],
+    /// Both `light_level` and `grouped_light_level` resources.
+    pub light_levels: &'a [LightLevelResource],
     /// device ID → name
     pub device_names: &'a HashMap<&'a str, &'a str>,
 }
@@ -79,7 +85,7 @@ pub fn build_motion_units(inputs: &MotionInputs) -> Vec<MotionUnit> {
         }
     }));
 
-    let daylight_by_service = daylight_by_service(inputs.automations);
+    let daylight_by_service = daylight_by_service(inputs.automations, inputs.light_levels);
     let grouped_by_id: HashMap<&str, &GroupedMotionResource> =
         inputs.grouped.iter().map(|g| (g.id.as_str(), g)).collect();
 
@@ -160,7 +166,14 @@ pub fn set_dark_threshold(configuration: &mut Value, threshold: Option<u32>) -> 
 }
 
 /// motion service ID → the daylight setting of the first automation on it.
-fn daylight_by_service(automations: &[BehaviorInstanceResource]) -> HashMap<&str, Daylight> {
+fn daylight_by_service<'a>(
+    automations: &'a [BehaviorInstanceResource],
+    light_levels: &[LightLevelResource],
+) -> HashMap<&'a str, Daylight> {
+    let level_by_service: HashMap<&str, Option<u32>> = light_levels
+        .iter()
+        .map(|l| (l.id.as_str(), l.light.current()))
+        .collect();
     let mut map = HashMap::new();
     for automation in automations {
         let Some(rid) = automation
@@ -173,9 +186,17 @@ fn daylight_by_service(automations: &[BehaviorInstanceResource]) -> HashMap<&str
         let Some(threshold) = dark_threshold(&automation.configuration) else {
             continue;
         };
+        let light_level_service = automation
+            .configuration
+            .pointer(LIGHT_LEVEL_SERVICE_RID_POINTER)
+            .and_then(Value::as_str);
         map.entry(rid).or_insert_with(|| Daylight {
             automation_id: automation.id.clone(),
             dark_threshold: threshold,
+            light_level_service_id: light_level_service.map(str::to_owned),
+            light_level: light_level_service
+                .and_then(|id| level_by_service.get(id).copied())
+                .flatten(),
         });
     }
     map
@@ -208,14 +229,14 @@ mod tests {
         json!({"motion_report": {"changed": "2026-10-04T09:00:00Z", "motion": motion}})
     }
 
-    fn automation(id: &str, service: &str, threshold: Option<u32>) -> Value {
+    fn automation(id: &str, service: &str, light: &str, threshold: Option<u32>) -> Value {
         let mut configuration = json!({
             "motion": {"motion_service": {"rid": service, "rtype": "motion"}},
             "source": {"rid": "device-x", "rtype": "device"},
         });
         if let Some(t) = threshold {
             configuration["light_level"] = json!({"daylight": {"daylight_sensitivity": {
-                "light_level_service": {"rid": "ll", "rtype": "light_level"},
+                "light_level_service": {"rid": light, "rtype": "light_level"},
                 "settings": {"dark_threshold": t, "offset": 7000},
             }}});
         }
@@ -255,10 +276,16 @@ mod tests {
              ]},
         ]));
         let automations = parse::<BehaviorInstanceResource>(json!([
-            automation("b-kitchen", "g-kitchen", Some(14477)),
-            automation("b-hall", "m-hall", Some(DAYLIGHT_OFF)),
-            automation("b-hall-2", "m-hall", Some(100)),
+            automation("b-kitchen", "g-kitchen", "gl-kitchen", Some(14477)),
+            automation("b-hall", "m-hall", "ll-hall", Some(DAYLIGHT_OFF)),
+            automation("b-hall-2", "m-hall", "ll-hall", Some(100)),
             {"id": "b-other", "configuration": {"when": {}}},
+        ]));
+        // The hall sensor has not reported yet.
+        let light_levels = parse::<LightLevelResource>(json!([
+            {"id": "gl-kitchen", "light": {"light_level_report":
+                {"changed": "2026-10-04T09:00:00Z", "light_level": 17723}}},
+            {"id": "ll-kitchen", "light": {"light_level": 17000}},
         ]));
         let device_names = HashMap::from([("d-kitchen", "Keittiön anturi"), ("d-hall", "Käytävä")]);
 
@@ -269,6 +296,7 @@ mod tests {
             grouped: &grouped,
             service_groups: &service_groups,
             automations: &automations,
+            light_levels: &light_levels,
             device_names: &device_names,
         })
     }
@@ -350,8 +378,30 @@ mod tests {
     }
 
     #[test]
+    fn daylight_carries_the_reading_the_automation_compares() {
+        let units = units();
+        let kitchen = units.iter().find(|u| u.id == "sg-kitchen").unwrap();
+        let hall = units.iter().find(|u| u.id == "m-hall").unwrap();
+
+        let kitchen_daylight = kitchen.daylight.as_ref().unwrap();
+        assert_eq!(
+            kitchen_daylight.light_level_service_id.as_deref(),
+            Some("gl-kitchen"),
+            "the group's reading, not its sensor's"
+        );
+        assert_eq!(kitchen_daylight.light_level, Some(17723));
+
+        let hall_daylight = hall.daylight.as_ref().unwrap();
+        assert_eq!(
+            hall_daylight.light_level_service_id.as_deref(),
+            Some("ll-hall")
+        );
+        assert_eq!(hall_daylight.light_level, None);
+    }
+
+    #[test]
     fn set_dark_threshold_rewrites_only_the_threshold() {
-        let mut configuration = automation("b", "m", Some(14477))["configuration"].clone();
+        let mut configuration = automation("b", "m", "ll", Some(14477))["configuration"].clone();
         let expected = {
             let mut c = configuration.clone();
             c["light_level"]["daylight"]["daylight_sensitivity"]["settings"]["dark_threshold"] =
@@ -368,7 +418,7 @@ mod tests {
 
     #[test]
     fn set_dark_threshold_refuses_automation_without_daylight() {
-        let mut configuration = automation("b", "m", None)["configuration"].clone();
+        let mut configuration = automation("b", "m", "ll", None)["configuration"].clone();
         let before = configuration.clone();
 
         assert!(!set_dark_threshold(&mut configuration, Some(20000)));

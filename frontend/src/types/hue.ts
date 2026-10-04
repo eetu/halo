@@ -32,8 +32,16 @@ export type MotionUnit = {
   motion?: boolean;
   motionUpdatedAt?: string;
   members: MotionMember[];
-  /** darkThreshold is a Hue light level; null when daylight is ignored. */
-  daylight?: { automationId: string; darkThreshold: number | null };
+  /**
+   * darkThreshold and lightLevel are Hue light levels; darkThreshold is null
+   * when daylight is ignored. lightLevel is the reading the automation compares.
+   */
+  daylight?: {
+    automationId: string;
+    darkThreshold: number | null;
+    lightLevelServiceId?: string;
+    lightLevel?: number;
+  };
 };
 
 export type Response = {
@@ -54,5 +62,6 @@ export type HueLiveEvent =
   | { type: "motion"; id: string; motion: boolean; updatedAt: string }
   | { type: "motion_enabled"; id: string; enabled: boolean }
   | { type: "motion_sensitivity"; id: string; sensitivity: number }
+  | { type: "light_level"; id: string; level: number }
   | { type: "daylight"; automationId: string; darkThreshold: number | null }
   | { type: "connectivity"; deviceId: string; connected: boolean };

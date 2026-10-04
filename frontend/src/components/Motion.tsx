@@ -14,6 +14,7 @@ import {
   formatLux,
   sensitivityEnds,
   sensitivityLabel,
+  thresholdFraction,
 } from "../hue/motion";
 import { mq } from "../mq";
 import { MotionMember, MotionMemberKind, MotionUnit } from "../types/hue";
@@ -287,6 +288,7 @@ type DaylightSettingsProps = {
 };
 
 const DaylightSettings: FC<DaylightSettingsProps> = ({ daylight }) => {
+  const theme = useTheme();
   const threshold = useBridgeWrite(daylight.darkThreshold);
   const [dragged, setDragged] = useState<number | null>(null);
 
@@ -295,6 +297,8 @@ const DaylightSettings: FC<DaylightSettingsProps> = ({ daylight }) => {
       post(`/api/hue/setDaylight/${daylight.automationId}`, { darkThreshold: next }),
     );
   const level = dragged ?? threshold.value;
+  const now = daylight.lightLevel;
+  const dark = now !== undefined && level !== null && now < level;
 
   return (
     <section>
@@ -307,15 +311,28 @@ const DaylightSettings: FC<DaylightSettingsProps> = ({ daylight }) => {
       </SettingRow>
       {level !== null && (
         <div css={{ paddingBottom: 8 }}>
-          <SettingRow label="hämärän raja" hint={`alle ${formatLux(level)}`} />
+          <SettingRow label="hämärän raja" hint={`alle ${formatLux(level)}`}>
+            {now !== undefined && (
+              <span
+                css={{
+                  ...theme.typography.caption,
+                  color: dark ? theme.colors.activity.on : theme.colors.text.muted,
+                }}
+              >
+                {`nyt ${formatLux(now)} · ${dark ? "valot syttyvät" : "valot eivät syty"}`}
+              </span>
+            )}
+          </SettingRow>
           <ThresholdSlider
             value={level}
+            now={now}
             onInput={setDragged}
             onRelease={(next) => {
               setDragged(null);
               if (next !== threshold.value) write(next);
             }}
           />
+          <ScaleEnds low="pimeä" high="valoisa" />
         </div>
       )}
       {threshold.failed && <Refusal />}
@@ -395,31 +412,41 @@ const Levels: FC<LevelsProps> = ({ value, max, onChange }) => {
           );
         })}
       </div>
-      <div
-        aria-hidden
-        css={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 8,
-          ...theme.typography.caption,
-          color: theme.colors.text.muted,
-        }}
-      >
-        <span>{`← ${low}`}</span>
-        <span>{`${high} →`}</span>
-      </div>
+      <ScaleEnds low={low} high={high} />
+    </div>
+  );
+};
+
+/** Names both ends of a scale, so the direction shows before a value is picked. */
+const ScaleEnds: FC<{ low: string; high: string }> = ({ low, high }) => {
+  const theme = useTheme();
+  return (
+    <div
+      aria-hidden
+      css={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 8,
+        ...theme.typography.caption,
+        color: theme.colors.text.muted,
+      }}
+    >
+      <span>{`← ${low}`}</span>
+      <span>{`${high} →`}</span>
     </div>
   );
 };
 
 type ThresholdSliderProps = {
   value: number;
+  /** The current reading, marked on the track. */
+  now?: number;
   onInput: (value: number) => void;
   onRelease: (value: number) => void;
 };
 
 /** Writes once on release: the native `change` event, which React's onChange is not. */
-const ThresholdSlider: FC<ThresholdSliderProps> = ({ value, onInput, onRelease }) => {
+const ThresholdSlider: FC<ThresholdSliderProps> = ({ value, now, onInput, onRelease }) => {
   const theme = useTheme();
   const ref = useRef<HTMLInputElement>(null);
   const release = useEffectEvent((input: HTMLInputElement) => onRelease(Number(input.value)));
@@ -433,24 +460,61 @@ const ThresholdSlider: FC<ThresholdSliderProps> = ({ value, onInput, onRelease }
   }, []);
 
   return (
-    <input
-      ref={ref}
-      type="range"
-      aria-label="hämärän raja"
-      min={DARK_THRESHOLD_MIN}
-      max={DARK_THRESHOLD_MAX}
-      step={100}
-      value={value}
-      onChange={(e) => onInput(Number(e.target.value))}
+    <div css={{ position: "relative", paddingTop: now === undefined ? 0 : 16 }}>
+      {now !== undefined && <NowMarker fraction={thresholdFraction(now)} />}
+      <input
+        ref={ref}
+        type="range"
+        aria-label="hämärän raja"
+        min={DARK_THRESHOLD_MIN}
+        max={DARK_THRESHOLD_MAX}
+        step={100}
+        value={value}
+        onChange={(e) => onInput(Number(e.target.value))}
+        css={{
+          display: "block",
+          width: "100%",
+          height: 32,
+          margin: 0,
+          accentColor: theme.colors.activity.on,
+          cursor: "pointer",
+        }}
+      />
+    </div>
+  );
+};
+
+/** Half the native thumb: its centre never reaches the ends of the track. */
+const THUMB_INSET = 8;
+
+const NowMarker: FC<{ fraction: number }> = ({ fraction }) => {
+  const theme = useTheme();
+  return (
+    <div
+      aria-hidden
       css={{
-        display: "block",
-        width: "100%",
-        height: 32,
-        margin: 0,
-        accentColor: theme.colors.activity.on,
-        cursor: "pointer",
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        left: `calc(${THUMB_INSET}px + ${fraction} * (100% - ${2 * THUMB_INSET}px))`,
+        transform: "translateX(-50%)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        pointerEvents: "none",
       }}
-    />
+    >
+      <span css={{ ...theme.typography.caption, lineHeight: "16px" }}>nyt</span>
+      <span
+        css={{
+          flex: 1,
+          width: 2,
+          margin: "6px 0",
+          borderRadius: 1,
+          backgroundColor: theme.colors.text.main,
+        }}
+      />
+    </div>
   );
 };
 

@@ -9,6 +9,13 @@ export const DARK_THRESHOLD_MAX = luxToLevel(1000);
 /** Where the threshold starts when daylight is switched on: Hue's sensor default. */
 export const DARK_THRESHOLD_DEFAULT = 16000;
 
+/** Where a light level sits along the daylight slider, 0–1, pinned at the ends. */
+export const thresholdFraction = (level: number) =>
+  Math.min(
+    1,
+    Math.max(0, (level - DARK_THRESHOLD_MIN) / (DARK_THRESHOLD_MAX - DARK_THRESHOLD_MIN)),
+  );
+
 export const formatLux = (level: number) => {
   const lux = levelToLux(level);
   return `${lux.toLocaleString("fi-FI", { maximumFractionDigits: lux < 10 ? 1 : 0 })} lx`;

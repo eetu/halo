@@ -72,6 +72,8 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
     let grouped_motions: Vec<GroupedMotionResource> = resources.take("grouped_motion")?;
     let service_groups: Vec<ServiceGroupResource> = resources.take("service_group")?;
     let automations: Vec<BehaviorInstanceResource> = resources.take("behavior_instance")?;
+    let mut light_levels: Vec<LightLevelResource> = resources.take("light_level")?;
+    light_levels.extend(resources.take::<LightLevelResource>("grouped_light_level")?);
 
     // device ID → battery level
     let battery_by_device: HashMap<&str, u8> = device_powers
@@ -182,6 +184,7 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
         grouped: &grouped_motions,
         service_groups: &service_groups,
         automations: &automations,
+        light_levels: &light_levels,
         device_names: &device_name_by_id,
     });
 

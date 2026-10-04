@@ -46,6 +46,11 @@ pub enum HueLiveEvent {
         id: String,
         sensitivity: u8,
     },
+    /// `id` is a `light_level` or `grouped_light_level` service.
+    LightLevel {
+        id: String,
+        level: u32,
+    },
     Daylight {
         #[serde(rename = "automationId")]
         automation_id: String,
@@ -237,6 +242,24 @@ fn parse_resource_update(resource: &serde_json::Value) -> Vec<HueLiveEvent> {
             }
             events
         }
+        "light_level" | "grouped_light_level" => resource
+            .get("light")
+            .and_then(|light| {
+                light
+                    .get("light_level_report")
+                    .and_then(|r| r.get("light_level"))
+                    .or_else(|| light.get("light_level"))
+            })
+            .and_then(|l| l.as_u64())
+            .and_then(|l| u32::try_from(l).ok())
+            .zip(resource.get("id").and_then(|v| v.as_str()))
+            .map(|(level, id)| {
+                vec![HueLiveEvent::LightLevel {
+                    id: id.to_string(),
+                    level,
+                }]
+            })
+            .unwrap_or_default(),
         "behavior_instance" => resource
             .get("configuration")
             .and_then(dark_threshold)
@@ -315,6 +338,19 @@ mod tests {
             events,
             [json!({"type": "motion", "id": "g-1", "motion": false,
                     "updatedAt": "2026-10-04T09:00:00Z"})]
+        );
+    }
+
+    #[test]
+    fn light_level_update_carries_the_reading() {
+        let events = events(json!({
+            "id": "gl-1", "type": "grouped_light_level",
+            "light": {"light_level_report": {"changed": "2026-10-04T09:00:00Z", "light_level": 17723}},
+        }));
+
+        assert_eq!(
+            events,
+            [json!({"type": "light_level", "id": "gl-1", "level": 17723})]
         );
     }
 

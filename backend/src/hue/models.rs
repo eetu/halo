@@ -116,6 +116,13 @@ pub struct Daylight {
     /// Hue light level (10000·log10(lux) + 1) below which motion counts as
     /// dark. `null` when the automation ignores daylight.
     pub dark_threshold: Option<u32>,
+    /// The `light_level` or `grouped_light_level` the automation compares
+    /// against. Live `light_level` events carry this ID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub light_level_service_id: Option<String>,
+    /// That service's current reading, on the same scale as the threshold.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub light_level: Option<u32>,
 }
 
 // ---- CLIP v2 resource shapes (for deserialization from bridge) ----
@@ -255,6 +262,35 @@ pub struct BehaviorInstanceResource {
     pub id: String,
     #[serde(default)]
     pub configuration: serde_json::Value,
+}
+
+/// `light_level` and `grouped_light_level` share this shape.
+#[derive(Debug, Deserialize)]
+pub struct LightLevelResource {
+    pub id: String,
+    #[serde(default)]
+    pub light: LightData,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct LightData {
+    /// Absent on a `grouped_light_level`; only the report is emitted there.
+    pub light_level: Option<u32>,
+    pub light_level_report: Option<LightLevelReport>,
+}
+
+impl LightData {
+    pub fn current(&self) -> Option<u32> {
+        self.light_level_report
+            .as_ref()
+            .map(|r| r.light_level)
+            .or(self.light_level)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LightLevelReport {
+    pub light_level: u32,
 }
 
 #[derive(Debug, Deserialize)]
