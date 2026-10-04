@@ -390,7 +390,7 @@ const RainMap = ({ className }: { className?: string }) => {
   }, [obsData, fcData, forecastFrames, ready]);
 
   // --- show only the active frame ---
-  // biome-ignore lint/correctness/useExhaustiveDependencies: timeline re-runs this over freshly built frames, which live in a ref
+  // `timeline` re-runs this over freshly built frames, which live in a ref.
   useEffect(() => {
     for (const [i, frame] of framesRef.current.entries()) {
       frame.layer.setOpacity(i === index ? frame.baseOpacity : 0);

@@ -114,7 +114,6 @@ const PriceChart: React.FC<{
   // freshly rendered selected-bar highlight rather than the previous frame.
   // (Touch handling and the loupe geometry live in the parent grid; this just
   // paints the magnifier for whichever chart is currently being scrubbed.)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedHour re-runs the redraw once its highlight has rendered
   useEffect(() => {
     const canvas = containerRef.current?.querySelector("canvas") ?? null;
     if (loupe && canvas && loupeRef.current) {
