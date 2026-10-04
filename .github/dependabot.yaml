@@ -18,6 +18,11 @@ updates:
           - "react"
           - "react-dom"
           - "@types/react"
+      # vitest refuses to run with mismatched @vitest/* versions
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       minor-and-patch:
         update-types:
           - "minor"

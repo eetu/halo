@@ -25,6 +25,14 @@ export default mergeConfig(
         },
         {
           // Browser tests for React components
+          // Vitest keeps process.env in pre-bundled deps, so both of React's
+          // CJS builds get bundled and rolldown inlines the production build's
+          // `jsxDEV = void 0`. Pin the dev build (vitest-dev/vitest#11265).
+          optimizeDeps: {
+            rolldownOptions: {
+              transform: { define: { "process.env.NODE_ENV": JSON.stringify("development") } },
+            },
+          },
           test: {
             name: "browser",
             globals: true,
