@@ -259,7 +259,7 @@ pub fn create_app(
                         let index_path = index_path.clone();
                         async move {
                             let (req, _) = req.into_parts();
-                            let file = actix_files::NamedFile::open_async(&index_path).await?;
+                            let file = actix_files::NamedFile::open(&index_path)?;
                             let res = file.into_response(&req);
                             Ok(actix_web::dev::ServiceResponse::new(req, res))
                         }
