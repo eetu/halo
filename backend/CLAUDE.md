@@ -11,7 +11,10 @@ new apps; new backends are axum). Serves the SPA from `STATIC_DIR` + `/api`.
   four tables; history queries.
 - `cache.rs` — in-memory caches.
 - `hue/` — bridge client: `get_data`, `events_sse` (broadcast channel),
-  `pair`, `toggle_group`, `set_brightness`, `toggle_motion`.
+  `pair`, `toggle_group`, `set_brightness`, and the motion unit setters
+  `set_motion_enabled`, `set_motion_sensitivity`, `set_daylight`. `motion.rs`
+  builds the units. `get_data` reads every resource in one
+  `GET /clip/v2/resource`: the bridge answers parallel per-type fetches with 429.
 - `weather/` — `fmi` (primary, FMI WFS) + `tomorrow` (tomorrow.io fallback).
 - `solis/` — SolisCloud client + 5-min polling loop writing `solis_readings`.
 - `pv/` — PV forecast `get_forecast`, plus `forecast/` (the output model: FMI

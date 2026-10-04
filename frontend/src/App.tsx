@@ -18,10 +18,27 @@ import SolisBox from "./components/SolisBox";
 import TemperatureBox from "./components/TemperatureBox";
 import Wordmark from "./components/Wordmark";
 import { mq } from "./mq";
-import { type HueLiveEvent, type Response, type Sensor } from "./types/hue";
+import {
+  type HueLiveEvent,
+  type MotionMember,
+  type MotionUnit,
+  type Response,
+  type Sensor,
+} from "./types/hue";
 
 // Leaflet is heavy; only pull it in when the radar tab is opened.
 const RainMap = lazy(() => import("./components/RainMap"));
+
+const updateMember = (
+  units: MotionUnit[],
+  id: string,
+  update: (member: MotionMember) => MotionMember,
+): MotionUnit[] =>
+  units.map((u) =>
+    u.members.some((m) => m.id === id)
+      ? { ...u, members: u.members.map((m) => (m.id === id ? update(m) : m)) }
+      : u,
+  );
 
 const applyEvent = (data: Response, event: HueLiveEvent): Response => {
   switch (event.type) {
@@ -57,17 +74,43 @@ const applyEvent = (data: Response, event: HueLiveEvent): Response => {
     case "motion":
       return {
         ...data,
-        sensors: data.sensors.map((s) =>
-          s.deviceId === event.deviceId
-            ? { ...s, motion: event.motion, motionUpdatedAt: event.updatedAt }
-            : s,
+        motionUnits: data.motionUnits.map((u) =>
+          u.motionServiceId === event.id
+            ? { ...u, motion: event.motion, motionUpdatedAt: event.updatedAt }
+            : u,
         ),
       };
     case "motion_enabled":
       return {
         ...data,
-        sensors: data.sensors.map((s) =>
-          s.deviceId === event.deviceId ? { ...s, motionEnabled: event.enabled } : s,
+        motionUnits: updateMember(data.motionUnits, event.id, (m) => ({
+          ...m,
+          enabled: event.enabled,
+        })),
+      };
+    case "motion_sensitivity":
+      return {
+        ...data,
+        motionUnits: updateMember(data.motionUnits, event.id, (m) =>
+          m.sensitivity ? { ...m, sensitivity: { ...m.sensitivity, value: event.sensitivity } } : m,
+        ),
+      };
+    case "light_level":
+      return {
+        ...data,
+        motionUnits: data.motionUnits.map((u) =>
+          u.daylight?.lightLevelServiceId === event.id
+            ? { ...u, daylight: { ...u.daylight, lightLevel: event.level } }
+            : u,
+        ),
+      };
+    case "daylight":
+      return {
+        ...data,
+        motionUnits: data.motionUnits.map((u) =>
+          u.daylight?.automationId === event.automationId
+            ? { ...u, daylight: { ...u.daylight, darkThreshold: event.darkThreshold } }
+            : u,
         ),
       };
     case "connectivity":
@@ -334,7 +377,7 @@ const App = () => {
             {view === "motion" && (
               <Motion
                 css={{ gridColumn: "1 / span 4" }}
-                sensors={outside.concat(insideCold).concat(inside)}
+                units={data?.motionUnits}
                 error={!!error}
               />
             )}

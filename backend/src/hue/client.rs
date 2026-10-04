@@ -20,6 +20,12 @@ pub enum HueError {
         #[source]
         source: serde_json::Error,
     },
+    #[error("Failed to decode {rtype} resources: {source}")]
+    DecodeResource {
+        rtype: String,
+        #[source]
+        source: serde_json::Error,
+    },
 }
 
 pub async fn hue_fetch<T: serde::de::DeserializeOwned>(

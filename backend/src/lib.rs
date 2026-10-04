@@ -47,7 +47,9 @@ pub struct AppState {
         hue::handlers::pair,
         hue::handlers::toggle_group,
         hue::handlers::set_brightness,
-        hue::handlers::toggle_motion,
+        hue::handlers::set_motion_enabled,
+        hue::handlers::set_motion_sensitivity,
+        hue::handlers::set_daylight,
         solis::handlers::get_data,
         solis::handlers::get_history,
         pv::handlers::get_forecast,
@@ -64,10 +66,18 @@ pub struct AppState {
         hue::models::Group,
         hue::models::GroupState,
         hue::models::RoomType,
+        hue::models::MotionUnit,
+        hue::models::MotionMember,
+        hue::models::MotionMemberKind,
+        hue::models::Sensitivity,
+        hue::models::Daylight,
         hue::events::HueLiveEvent,
         hue::handlers::PairRequest,
         hue::handlers::PairResponse,
         hue::handlers::SetBrightnessRequest,
+        hue::handlers::SetMotionEnabledRequest,
+        hue::handlers::SetMotionSensitivityRequest,
+        hue::handlers::SetDaylightRequest,
         solis::models::SolisWidgetData,
         solis::models::SolisReading,
         pv::models::PvForecast,
@@ -230,8 +240,16 @@ pub fn create_app(
                             web::post().to(hue::handlers::set_brightness),
                         )
                         .route(
-                            "/toggleMotion/{deviceId}",
-                            web::post().to(hue::handlers::toggle_motion),
+                            "/setMotionEnabled/{id}",
+                            web::post().to(hue::handlers::set_motion_enabled),
+                        )
+                        .route(
+                            "/setMotionSensitivity/{id}",
+                            web::post().to(hue::handlers::set_motion_sensitivity),
+                        )
+                        .route(
+                            "/setDaylight/{automationId}",
+                            web::post().to(hue::handlers::set_daylight),
                         ),
                 )
                 .service(web::scope("/solis").route("", web::get().to(solis::handlers::get_data)))
