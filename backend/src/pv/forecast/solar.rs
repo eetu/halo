@@ -5,7 +5,7 @@
 //! zenith is degrees from vertical.
 
 use chrono::{DateTime, Datelike, Utc};
-use solar_positioning::{spa, RefractionCorrection};
+use solar_positioning::{Location, RefractionCorrection, SolarPositions};
 
 /// Observer elevation, atmosphere and ΔT used for the sun position. Refraction
 /// depends on the first three, but only near the horizon, so standard sea-level
@@ -38,15 +38,18 @@ pub fn sun_state(time: DateTime<Utc>, latitude: f64, longitude: f64) -> SunState
     let refraction = RefractionCorrection::new(PRESSURE_MBAR, TEMPERATURE_C)
         .expect("standard pressure and temperature are in range");
 
-    let position = spa::solar_position(
-        time,
-        latitude,
-        longitude,
-        OBSERVER_ELEVATION_M,
-        DELTA_T_SECONDS,
-        Some(refraction),
-    )
-    .expect("site coordinates are validated at settings load");
+    let position = SolarPositions::new()
+        .at(
+            &time,
+            Location {
+                latitude,
+                longitude,
+            },
+            OBSERVER_ELEVATION_M,
+            DELTA_T_SECONDS,
+            Some(refraction),
+        )
+        .expect("site coordinates are validated at settings load");
 
     let apparent_zenith = position.zenith_angle();
 
