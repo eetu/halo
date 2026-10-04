@@ -1,5 +1,5 @@
 import { useTheme } from "@emotion/react";
-import { FC } from "react";
+import type { FC } from "react";
 
 type SwitchProps = {
   checked: boolean;

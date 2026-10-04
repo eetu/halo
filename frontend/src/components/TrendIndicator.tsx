@@ -1,6 +1,6 @@
 import { useTheme } from "@emotion/react";
 
-import { Trend } from "../hooks/useSensorTrend";
+import type { Trend } from "../hooks/useSensorTrend";
 import Icon from "./Icon";
 
 type TrendIndicatorProps = {

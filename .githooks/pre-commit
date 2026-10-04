@@ -7,7 +7,6 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACM)
 if echo "$STAGED" | grep -q "^frontend/"; then
   echo "Running frontend lint..."
   (cd "$ROOT/frontend" && yarn lint)
-  (cd "$ROOT/frontend" && yarn format)
 fi
 
 if echo "$STAGED" | grep -q "^backend/"; then

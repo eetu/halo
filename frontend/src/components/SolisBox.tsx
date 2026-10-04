@@ -2,9 +2,9 @@ import { useTheme } from "@emotion/react";
 import { memo } from "react";
 import useSWR from "swr";
 
-import { api, HttpError, jsonFetcher } from "../api";
+import { api, type HttpError, jsonFetcher } from "../api";
 import { mq } from "../mq";
-import { SolisData } from "../types/solis";
+import type { SolisData } from "../types/solis";
 import Box, { DrawerRow } from "./Box";
 import Icon from "./Icon";
 import OfflineState from "./OfflineState";

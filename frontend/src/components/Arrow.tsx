@@ -1,5 +1,5 @@
 import { useTheme } from "@emotion/react";
-import React from "react";
+import type React from "react";
 
 type ArrowProps = {
   className?: string;

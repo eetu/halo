@@ -2,7 +2,7 @@ import { keyframes, useTheme } from "@emotion/react";
 import { formatDistanceToNow } from "date-fns";
 import { fi } from "date-fns/locale/fi";
 import { ChevronDown } from "lucide-react";
-import { FC, memo, ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
+import { type FC, memo, type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
 
 import { api } from "../api";
@@ -17,7 +17,7 @@ import {
   thresholdFraction,
 } from "../hue/motion";
 import { mq } from "../mq";
-import { MotionMember, MotionMemberKind, MotionUnit } from "../types/hue";
+import type { MotionMember, MotionMemberKind, MotionUnit } from "../types/hue";
 import Switch from "./Switch";
 
 const motionPulse = keyframes`
@@ -383,7 +383,7 @@ const Levels: FC<LevelsProps> = ({ value, max, onChange }) => {
   return (
     <div css={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <div role="radiogroup" aria-label="herkkyys" css={{ display: "flex", gap: 4 }}>
-        {Array.from({ length: max + 1 }, (_, level) => {
+        {Array.from({ length: max + 1 }, (_, i) => i).map((level) => {
           const selected = level === value;
           return (
             <button

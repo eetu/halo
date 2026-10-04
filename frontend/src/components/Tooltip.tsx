@@ -1,7 +1,7 @@
 import {
   autoUpdate,
-  flip,
   FloatingPortal,
+  flip,
   offset,
   shift,
   useDismiss,
@@ -12,7 +12,8 @@ import {
   useRole,
 } from "@floating-ui/react";
 import classNames from "classnames";
-import React, { useState } from "react";
+import type React from "react";
+import { useState } from "react";
 
 type TooltipProps = {
   className?: string;

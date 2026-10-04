@@ -2,12 +2,12 @@
 
 ## Validation
 
-Run `yarn validate` after changes — runs lint, format check, and typecheck in one shot.
+Run `yarn validate` after changes — runs typecheck and lint in one shot.
 
 Individual scripts:
 
-- `yarn lint` / `yarn lint:fix`
-- `yarn format` / `yarn format:fix`
+- `yarn lint` / `yarn lint:fix` — Biome (`@anarkisti/biome-config/react`):
+  formatting, lint and import order in one pass
 - `yarn typecheck`
 
 Use yarn (not npm). It's vendored at `.yarn/releases/` and pinned by `yarnPath`

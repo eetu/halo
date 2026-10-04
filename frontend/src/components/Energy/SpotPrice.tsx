@@ -1,11 +1,17 @@
-import { Theme, useTheme } from "@emotion/react";
-import { BarElement, CategoryScale, Chart as ChartJS, ChartOptions, LinearScale } from "chart.js";
+import { type Theme, useTheme } from "@emotion/react";
+import {
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  type ChartOptions,
+  LinearScale,
+} from "chart.js";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Bar } from "react-chartjs-2";
 
 import { api } from "../../api";
 import { mq } from "../../mq";
-import { HourPrice, SpotResponse } from "../../types/spot";
+import type { HourPrice, SpotResponse } from "../../types/spot";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale);
 

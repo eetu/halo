@@ -1,4 +1,4 @@
-import { TomorrowInterval } from "../../types/weather/tomorrow";
+import type { TomorrowInterval } from "../../types/weather/tomorrow";
 
 type Segment = {
   title: "aamu" | "päivä" | "ilta" | "yö";

@@ -276,7 +276,6 @@ function buildConfig(kind: WeatherKind, isDark: boolean, precip: number): KindCo
         vx: [0, 0],
         sway: 0,
       };
-    case "clear-day":
     default:
       return {
         glyphs: ["·", "+", "˙"],

@@ -328,15 +328,17 @@ const RainMap = ({ className }: { className?: string }) => {
         interactive: false,
       }),
     ];
-    marks.forEach((m) => m.addTo(map));
-    return () => marks.forEach((m) => map.removeLayer(m));
+    for (const mark of marks) mark.addTo(map);
+    return () => {
+      for (const mark of marks) map.removeLayer(mark);
+    };
   }, [location, ready, theme.colors.activity.on, theme.colors.background.main]);
 
   // --- build the unified layer stack: observed WMS tiles + forecast heat ---
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    framesRef.current.forEach((f) => map.removeLayer(f.layer));
+    for (const frame of framesRef.current) map.removeLayer(frame.layer);
 
     const built: Frame[] = [];
     if (obsData) {
@@ -382,14 +384,17 @@ const RainMap = ({ className }: { className?: string }) => {
     const indexTimer = setTimeout(() => setIndex(startIdx), 0);
     return () => {
       clearTimeout(indexTimer);
-      built.forEach((f) => map.removeLayer(f.layer));
+      for (const frame of built) map.removeLayer(frame.layer);
       framesRef.current = [];
     };
   }, [obsData, fcData, forecastFrames, ready]);
 
   // --- show only the active frame ---
+  // `timeline` re-runs this over freshly built frames, which live in a ref.
   useEffect(() => {
-    framesRef.current.forEach((f, i) => f.layer.setOpacity(i === index ? f.baseOpacity : 0));
+    for (const [i, frame] of framesRef.current.entries()) {
+      frame.layer.setOpacity(i === index ? frame.baseOpacity : 0);
+    }
   }, [index, timeline]);
 
   // --- playback loop ---

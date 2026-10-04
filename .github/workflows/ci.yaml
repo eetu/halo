@@ -27,7 +27,6 @@ jobs:
           yarn() { node .yarn/releases/yarn-*.cjs "$@"; }
           yarn install --immutable
           yarn playwright install chromium
-          yarn format
           yarn lint
           yarn typecheck
           yarn test

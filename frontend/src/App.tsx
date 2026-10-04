@@ -18,13 +18,7 @@ import SolisBox from "./components/SolisBox";
 import TemperatureBox from "./components/TemperatureBox";
 import Wordmark from "./components/Wordmark";
 import { mq } from "./mq";
-import {
-  type HueLiveEvent,
-  type MotionMember,
-  type MotionUnit,
-  type Response,
-  type Sensor,
-} from "./types/hue";
+import type { HueLiveEvent, MotionMember, MotionUnit, Response, Sensor } from "./types/hue";
 
 // Leaflet is heavy; only pull it in when the radar tab is opened.
 const RainMap = lazy(() => import("./components/RainMap"));

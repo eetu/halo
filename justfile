@@ -46,14 +46,13 @@ build:
     cd frontend && {{yarn}} build
     cd backend && cargo build --release
 
-# Lint (frontend eslint + backend clippy).
+# Lint (frontend biome, which also checks formatting + backend clippy).
 lint:
     cd frontend && {{yarn}} lint
     cd backend && cargo clippy --workspace --all-targets -- -D warnings
 
-# Formatting check (prettier + rustfmt); apply with format:fix / cargo fmt --all.
+# Backend formatting check; apply with cargo fmt --all. Frontend formatting is part of `lint`.
 format:
-    cd frontend && {{yarn}} format
     cd backend && cargo fmt --all -- --check
 
 # Tests: frontend vitest + backend cargo test. E2E is `just e2e`.
