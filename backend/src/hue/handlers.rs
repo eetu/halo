@@ -11,8 +11,9 @@ use crate::AppState;
 
 use super::client::{hue_fetch, hue_put};
 use super::data::fetch_hue_data;
-use super::events::subscribe;
-use super::models::{GroupedLightResource, MotionResource};
+use super::events::{subscribe, HueLiveEvent};
+use super::models::{BehaviorInstanceResource, GroupedLightResource, MotionMemberKind};
+use super::motion::{set_dark_threshold, DAYLIGHT_OFF};
 
 // ---- GET /api/hue ----
 
@@ -262,59 +263,178 @@ pub async fn set_brightness(
     }
 }
 
-// ---- POST /api/hue/toggleMotion/{deviceId} ----
+// ---- motion unit settings ----
+
+/// Bridge resource IDs are UUIDs; anything else must not reach a bridge path.
+fn is_resource_id(id: &str) -> bool {
+    !id.is_empty() && id.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+}
+
+fn invalid_id() -> HttpResponse {
+    HttpResponse::BadRequest().json(serde_json::json!({"error": "invalid resource id"}))
+}
+
+/// The bridge echoes a write on its event stream too; announcing it here
+/// updates every open dashboard without waiting for that.
+async fn announce(state: &AppState, event: HueLiveEvent) {
+    state.hue_cache.invalidate("hue").await;
+    let _ = state.hue_events_tx.send(event);
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SetMotionEnabledRequest {
+    pub kind: MotionMemberKind,
+    pub enabled: bool,
+}
 
 #[utoipa::path(
     post,
-    path = "/api/hue/toggleMotion/{deviceId}",
-    params(("deviceId" = String, Path, description = "Hue device ID owning the motion service")),
+    path = "/api/hue/setMotionEnabled/{id}",
+    params(("id" = String, Path, description = "Motion unit member service ID")),
+    request_body = SetMotionEnabledRequest,
     responses(
-        (status = 200, description = "Motion sensor toggled"),
-        (status = 404, description = "Motion service not found for device"),
-        (status = 502, description = "Failed to toggle motion sensor")
+        (status = 200, description = "Member enabled or disabled"),
+        (status = 400, description = "Invalid ID"),
+        (status = 502, description = "Bridge refused the change")
     )
 )]
-pub async fn toggle_motion(
+pub async fn set_motion_enabled(
     state: web::Data<Arc<AppState>>,
     path: web::Path<String>,
+    body: web::Json<SetMotionEnabledRequest>,
 ) -> HttpResponse {
-    let device_id = path.into_inner();
+    let id = path.into_inner();
+    if !is_resource_id(&id) {
+        return invalid_id();
+    }
+    let payload = serde_json::json!({"enabled": body.enabled});
 
-    let motions = match hue_fetch::<MotionResource>(&state, "/clip/v2/resource/motion").await {
-        Ok(res) => res,
+    match hue_put(&state, &body.kind.resource_path(&id), &payload).await {
+        Ok(()) => {
+            let enabled = body.enabled;
+            announce(&state, HueLiveEvent::MotionEnabled { id, enabled }).await;
+            HttpResponse::Ok().finish()
+        }
         Err(e) => {
-            tracing::error!("Failed to list motion services: {e}");
+            tracing::error!("Failed to set motion enabled for {id}: {e}");
+            HttpResponse::BadGateway().json(serde_json::json!({"error": e.to_string()}))
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SetMotionSensitivityRequest {
+    pub kind: MotionMemberKind,
+    /// 0..=the member's `sensitivity.max`; the bridge rejects anything above.
+    pub sensitivity: u8,
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/hue/setMotionSensitivity/{id}",
+    params(("id" = String, Path, description = "Motion unit member service ID")),
+    request_body = SetMotionSensitivityRequest,
+    responses(
+        (status = 200, description = "Sensitivity set"),
+        (status = 400, description = "Invalid ID"),
+        (status = 502, description = "Bridge refused the change")
+    )
+)]
+pub async fn set_motion_sensitivity(
+    state: web::Data<Arc<AppState>>,
+    path: web::Path<String>,
+    body: web::Json<SetMotionSensitivityRequest>,
+) -> HttpResponse {
+    let id = path.into_inner();
+    if !is_resource_id(&id) {
+        return invalid_id();
+    }
+    let payload = serde_json::json!({"sensitivity": {"sensitivity": body.sensitivity}});
+
+    match hue_put(&state, &body.kind.resource_path(&id), &payload).await {
+        Ok(()) => {
+            let sensitivity = body.sensitivity;
+            announce(&state, HueLiveEvent::MotionSensitivity { id, sensitivity }).await;
+            HttpResponse::Ok().finish()
+        }
+        Err(e) => {
+            tracing::error!("Failed to set motion sensitivity for {id}: {e}");
+            HttpResponse::BadGateway().json(serde_json::json!({"error": e.to_string()}))
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SetDaylightRequest {
+    /// Hue light level below which motion counts as dark; `null` to ignore
+    /// daylight.
+    pub dark_threshold: Option<u32>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/hue/setDaylight/{automationId}",
+    params(("automationId" = String, Path, description = "Motion automation (behavior_instance) ID")),
+    request_body = SetDaylightRequest,
+    responses(
+        (status = 200, description = "Daylight threshold set"),
+        (status = 400, description = "Invalid ID or threshold"),
+        (status = 404, description = "Automation not found"),
+        (status = 409, description = "Automation has no daylight setting"),
+        (status = 502, description = "Bridge refused the change")
+    )
+)]
+pub async fn set_daylight(
+    state: web::Data<Arc<AppState>>,
+    path: web::Path<String>,
+    body: web::Json<SetDaylightRequest>,
+) -> HttpResponse {
+    let automation_id = path.into_inner();
+    if !is_resource_id(&automation_id) {
+        return invalid_id();
+    }
+    let dark_threshold = body.dark_threshold;
+    if dark_threshold.is_some_and(|t| t >= DAYLIGHT_OFF) {
+        return HttpResponse::BadRequest().json(
+            serde_json::json!({"error": format!("darkThreshold must be below {DAYLIGHT_OFF}")}),
+        );
+    }
+
+    // The bridge replaces `configuration` whole, so the write carries
+    // everything else the automation holds alongside the new threshold.
+    let resource_path = format!("/clip/v2/resource/behavior_instance/{automation_id}");
+    let mut automations = match hue_fetch::<BehaviorInstanceResource>(&state, &resource_path).await
+    {
+        Ok(res) => res.data,
+        Err(e) => {
+            tracing::error!("Failed to get automation {automation_id}: {e}");
             return HttpResponse::BadGateway().json(serde_json::json!({"error": e.to_string()}));
         }
     };
-
-    let Some(service) = motions.data.iter().find(|m| m.owner.rid == device_id) else {
-        return HttpResponse::NotFound()
-            .json(serde_json::json!({"error": "Motion service not found for device"}));
+    let Some(automation) = automations.first_mut() else {
+        return HttpResponse::NotFound().json(serde_json::json!({"error": "automation not found"}));
     };
+    if !set_dark_threshold(&mut automation.configuration, dark_threshold) {
+        return HttpResponse::Conflict()
+            .json(serde_json::json!({"error": "automation has no daylight setting"}));
+    }
+    let payload = serde_json::json!({"configuration": automation.configuration});
 
-    let new_enabled = !service.enabled;
-    let body = serde_json::json!({"enabled": new_enabled});
-
-    match hue_put(
-        &state,
-        &format!("/clip/v2/resource/motion/{}", service.id),
-        &body,
-    )
-    .await
-    {
+    match hue_put(&state, &resource_path, &payload).await {
         Ok(()) => {
-            state.hue_cache.invalidate("hue").await;
-            let _ = state
-                .hue_events_tx
-                .send(super::events::HueLiveEvent::MotionEnabled {
-                    device_id,
-                    enabled: new_enabled,
-                });
-            HttpResponse::Ok().json(serde_json::json!({"enabled": new_enabled}))
+            announce(
+                &state,
+                HueLiveEvent::Daylight {
+                    automation_id,
+                    dark_threshold,
+                },
+            )
+            .await;
+            HttpResponse::Ok().finish()
         }
         Err(e) => {
-            tracing::error!("Failed to toggle motion {}: {e}", service.id);
+            tracing::error!("Failed to set daylight for {automation_id}: {e}");
             HttpResponse::BadGateway().json(serde_json::json!({"error": e.to_string()}))
         }
     }

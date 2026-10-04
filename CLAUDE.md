@@ -40,6 +40,11 @@ Per-area instructions in `backend/CLAUDE.md` and `frontend/CLAUDE.md`.
   disabled).
 - **Hue events.** `GET /api/hue/events` is an SSE stream off a broadcast channel
   — live bridge-state pushes, not polling.
+- **Motion units.** The motion tab lists what each motion automation listens
+  to: a Hue `service_group` (sensors and MotionAware fixtures behind one
+  `grouped_motion`), or a sensor or area on its own. Sensitivity belongs to each
+  member; daylight is the automation's (`behavior_instance`) `dark_threshold`,
+  so changing it rewrites that automation's whole configuration.
 - **Installable + touch-first.** The SPA ships a web manifest and a full icon set
   (`frontend/scripts/gen-icons.sh` regenerates the PNGs from `favicon.svg` —
   rerun and commit after editing it). The layout assumes `viewport-fit=cover`:

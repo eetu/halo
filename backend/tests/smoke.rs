@@ -35,8 +35,16 @@ fn test_app(
                             web::post().to(hue::handlers::toggle_group),
                         )
                         .route(
-                            "/toggleMotion/{deviceId}",
-                            web::post().to(hue::handlers::toggle_motion),
+                            "/setMotionEnabled/{id}",
+                            web::post().to(hue::handlers::set_motion_enabled),
+                        )
+                        .route(
+                            "/setMotionSensitivity/{id}",
+                            web::post().to(hue::handlers::set_motion_sensitivity),
+                        )
+                        .route(
+                            "/setDaylight/{automationId}",
+                            web::post().to(hue::handlers::set_daylight),
                         ),
                 ),
         )
@@ -237,24 +245,21 @@ async fn hue_get_returns_error_without_credentials() {
 async fn hue_get_returns_data_from_bridge() {
     let mock_server = MockServer::start().await;
 
-    // Mock all 7 endpoints that fetch_hue_data calls
-    let empty_list = serde_json::json!({"data": []});
-
-    for endpoint in [
-        "/clip/v2/resource/room",
-        "/clip/v2/resource/temperature",
-        "/clip/v2/resource/grouped_light",
-        "/clip/v2/resource/device_power",
-        "/clip/v2/resource/device",
-        "/clip/v2/resource/motion",
-        "/clip/v2/resource/zigbee_connectivity",
-    ] {
-        Mock::given(method("GET"))
-            .and(path(endpoint))
-            .respond_with(ResponseTemplate::new(200).set_body_json(&empty_list))
-            .mount(&mock_server)
-            .await;
-    }
+    // No motion area types, as on firmware that predates them; a scene the
+    // dashboard ignores.
+    Mock::given(method("GET"))
+        .and(path("/clip/v2/resource"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(serde_json::json!({"data": [
+                {"id": "d1", "type": "device", "metadata": {"name": "Käytävä"}},
+                {"id": "m1", "type": "motion", "owner": {"rid": "d1"}, "enabled": true,
+                 "motion": {"motion": false}},
+                {"id": "s1", "type": "scene", "metadata": {"name": "Ilta"}},
+            ]})),
+        )
+        .expect(1)
+        .mount(&mock_server)
+        .await;
 
     let settings = test_settings_with_mock(&mock_server.uri());
     let state = create_test_app_state_with(settings);
@@ -267,6 +272,8 @@ async fn hue_get_returns_data_from_bridge() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert!(body["sensors"].as_array().unwrap().is_empty());
     assert!(body["groups"].as_array().unwrap().is_empty());
+    assert_eq!(body["motionUnits"][0]["name"], "Käytävä");
+    assert_eq!(body["motionUnits"][0]["members"][0]["kind"], "sensor");
 }
 
 #[actix_web::test]
@@ -282,6 +289,7 @@ async fn hue_get_returns_cached_data() {
                 brightness: Some(80.0),
             },
         }],
+        motion_units: vec![],
     };
     state.hue_cache.set("hue".to_owned(), cached).await;
 
@@ -407,68 +415,149 @@ async fn hue_toggle_toggles_group() {
     assert_eq!(resp.status(), 200);
 }
 
+async fn post_json(
+    state: std::sync::Arc<halo_backend::AppState>,
+    uri: &str,
+    body: serde_json::Value,
+) -> u16 {
+    let app = test::init_service(test_app(state)).await;
+    let req = test::TestRequest::post()
+        .uri(uri)
+        .set_json(body)
+        .to_request();
+    test::call_service(&app, req).await.status().as_u16()
+}
+
 #[actix_web::test]
-async fn hue_toggle_motion_toggles_enabled() {
+async fn hue_set_motion_enabled_writes_to_the_member_kind() {
     let mock_server = MockServer::start().await;
-
-    Mock::given(method("GET"))
-        .and(path("/clip/v2/resource/motion"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "data": [
-                {"id": "motion-1", "owner": {"rid": "device-1"}, "enabled": true, "motion": {"motion": false}},
-                {"id": "motion-2", "owner": {"rid": "device-2"}, "enabled": false, "motion": {"motion": null}}
-            ]
-        })))
-        .mount(&mock_server)
-        .await;
-
     let put_mock = Mock::given(method("PUT"))
-        .and(path("/clip/v2/resource/motion/motion-1"))
+        .and(path("/clip/v2/resource/convenience_area_motion/a1"))
         .and(body_json(serde_json::json!({"enabled": false})))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
         .mount_as_scoped(&mock_server)
         .await;
 
-    let settings = test_settings_with_mock(&mock_server.uri());
-    let state = create_test_app_state_with(settings);
-    let app = test::init_service(test_app(state)).await;
+    let state = create_test_app_state_with(test_settings_with_mock(&mock_server.uri()));
+    let status = post_json(
+        state,
+        "/api/hue/setMotionEnabled/a1",
+        serde_json::json!({"kind": "area", "enabled": false}),
+    )
+    .await;
 
-    let req = test::TestRequest::post()
-        .uri("/api/hue/toggleMotion/device-1")
-        .to_request();
-    let resp = test::call_service(&app, req).await;
-
-    assert_eq!(resp.status(), 200);
-    let body: serde_json::Value = test::read_body_json(resp).await;
-    assert_eq!(body["enabled"], false);
+    assert_eq!(status, 200);
     drop(put_mock);
 }
 
 #[actix_web::test]
-async fn hue_toggle_motion_unknown_device_returns_404() {
+async fn hue_set_motion_sensitivity_writes_the_level() {
     let mock_server = MockServer::start().await;
+    let put_mock = Mock::given(method("PUT"))
+        .and(path("/clip/v2/resource/motion/b2"))
+        .and(body_json(
+            serde_json::json!({"sensitivity": {"sensitivity": 3}}),
+        ))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount_as_scoped(&mock_server)
+        .await;
 
+    let state = create_test_app_state_with(test_settings_with_mock(&mock_server.uri()));
+    let status = post_json(
+        state,
+        "/api/hue/setMotionSensitivity/b2",
+        serde_json::json!({"kind": "sensor", "sensitivity": 3}),
+    )
+    .await;
+
+    assert_eq!(status, 200);
+    drop(put_mock);
+}
+
+#[actix_web::test]
+async fn hue_motion_setters_reject_ids_that_are_not_resource_ids() {
+    let state = create_test_app_state();
+    let status = post_json(
+        state,
+        "/api/hue/setMotionEnabled/room",
+        serde_json::json!({"kind": "sensor", "enabled": true}),
+    )
+    .await;
+
+    assert_eq!(status, 400);
+}
+
+fn automation(daylight: bool) -> serde_json::Value {
+    let mut configuration = serde_json::json!({
+        "motion": {"motion_service": {"rid": "c3", "rtype": "motion"}},
+        "source": {"rid": "d4", "rtype": "device"},
+    });
+    if daylight {
+        configuration["light_level"] = serde_json::json!({"daylight": {"daylight_sensitivity": {
+            "settings": {"dark_threshold": 14477, "offset": 7000},
+        }}});
+    }
+    serde_json::json!({"data": [{"id": "e5", "type": "behavior_instance", "configuration": configuration}]})
+}
+
+#[actix_web::test]
+async fn hue_set_daylight_writes_back_the_whole_configuration() {
+    let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/clip/v2/resource/motion"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "data": [
-                {"id": "motion-1", "owner": {"rid": "device-1"}, "enabled": true, "motion": {"motion": false}}
-            ]
-        })))
+        .and(path("/clip/v2/resource/behavior_instance/e5"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(automation(true)))
         .mount(&mock_server)
         .await;
 
-    let settings = test_settings_with_mock(&mock_server.uri());
-    let state = create_test_app_state_with(settings);
-    let app = test::init_service(test_app(state)).await;
+    let mut expected = automation(true)["data"][0]["configuration"].clone();
+    expected["light_level"]["daylight"]["daylight_sensitivity"]["settings"]["dark_threshold"] =
+        serde_json::json!(65534);
+    let put_mock = Mock::given(method("PUT"))
+        .and(path("/clip/v2/resource/behavior_instance/e5"))
+        .and(body_json(serde_json::json!({"configuration": expected})))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount_as_scoped(&mock_server)
+        .await;
 
-    let req = test::TestRequest::post()
-        .uri("/api/hue/toggleMotion/missing-device")
-        .to_request();
-    let resp = test::call_service(&app, req).await;
+    let state = create_test_app_state_with(test_settings_with_mock(&mock_server.uri()));
+    let status = post_json(
+        state,
+        "/api/hue/setDaylight/e5",
+        serde_json::json!({"darkThreshold": null}),
+    )
+    .await;
 
-    assert_eq!(resp.status(), 404);
+    assert_eq!(status, 200);
+    drop(put_mock);
+}
+
+#[actix_web::test]
+async fn hue_set_daylight_refuses_automation_without_daylight() {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/clip/v2/resource/behavior_instance/e5"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(automation(false)))
+        .mount(&mock_server)
+        .await;
+    let put_mock = Mock::given(method("PUT"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount_as_scoped(&mock_server)
+        .await;
+
+    let state = create_test_app_state_with(test_settings_with_mock(&mock_server.uri()));
+    let status = post_json(
+        state,
+        "/api/hue/setDaylight/e5",
+        serde_json::json!({"darkThreshold": 20000}),
+    )
+    .await;
+
+    assert_eq!(status, 409);
+    drop(put_mock);
 }
 
 // ---- Routing ----

@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 use crate::AppState;
 
 use super::discovery::get_bridge_address;
+use super::motion::dark_threshold;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -28,17 +29,29 @@ pub enum HueLiveEvent {
         device_id: String,
         battery: u8,
     },
+    /// `id` is a `motion`, `convenience_area_motion` or `grouped_motion` service.
     Motion {
-        #[serde(rename = "deviceId")]
-        device_id: String,
+        id: String,
         motion: bool,
         #[serde(rename = "updatedAt")]
         updated_at: String,
     },
+    /// `id` is a motion unit member's service.
     MotionEnabled {
-        #[serde(rename = "deviceId")]
-        device_id: String,
+        id: String,
         enabled: bool,
+    },
+    /// `id` is a motion unit member's service.
+    MotionSensitivity {
+        id: String,
+        sensitivity: u8,
+    },
+    Daylight {
+        #[serde(rename = "automationId")]
+        automation_id: String,
+        /// `null` when the automation ignores daylight.
+        #[serde(rename = "darkThreshold")]
+        dark_threshold: Option<u32>,
     },
     Connectivity {
         #[serde(rename = "deviceId")]
@@ -185,20 +198,30 @@ fn parse_resource_update(resource: &serde_json::Value) -> Vec<HueLiveEvent> {
                 }]
             })
             .unwrap_or_default(),
-        "motion" => {
-            let Some(device_id) = resource
-                .get("owner")
-                .and_then(|o| o.get("rid"))
-                .and_then(|r| r.as_str())
-            else {
+        "motion" | "convenience_area_motion" | "grouped_motion" => {
+            let Some(id) = resource.get("id").and_then(|v| v.as_str()) else {
                 return Vec::new();
             };
             let mut events = Vec::new();
-            if let Some(enabled) = resource.get("enabled").and_then(|e| e.as_bool()) {
-                events.push(HueLiveEvent::MotionEnabled {
-                    device_id: device_id.to_string(),
-                    enabled,
-                });
+            // A grouped_motion is not a member, so its enabled flag has no row.
+            if rtype != "grouped_motion" {
+                if let Some(enabled) = resource.get("enabled").and_then(|e| e.as_bool()) {
+                    events.push(HueLiveEvent::MotionEnabled {
+                        id: id.to_string(),
+                        enabled,
+                    });
+                }
+                if let Some(sensitivity) = resource
+                    .get("sensitivity")
+                    .and_then(|s| s.get("sensitivity"))
+                    .and_then(|s| s.as_u64())
+                    .and_then(|s| u8::try_from(s).ok())
+                {
+                    events.push(HueLiveEvent::MotionSensitivity {
+                        id: id.to_string(),
+                        sensitivity,
+                    });
+                }
             }
             if let Some(report) = resource.get("motion").and_then(|m| m.get("motion_report")) {
                 if let (Some(motion), Some(updated_at)) = (
@@ -206,7 +229,7 @@ fn parse_resource_update(resource: &serde_json::Value) -> Vec<HueLiveEvent> {
                     report.get("changed").and_then(|c| c.as_str()),
                 ) {
                     events.push(HueLiveEvent::Motion {
-                        device_id: device_id.to_string(),
+                        id: id.to_string(),
                         motion,
                         updated_at: updated_at.to_string(),
                     });
@@ -214,6 +237,17 @@ fn parse_resource_update(resource: &serde_json::Value) -> Vec<HueLiveEvent> {
             }
             events
         }
+        "behavior_instance" => resource
+            .get("configuration")
+            .and_then(dark_threshold)
+            .zip(resource.get("id").and_then(|v| v.as_str()))
+            .map(|(dark_threshold, automation_id)| {
+                vec![HueLiveEvent::Daylight {
+                    automation_id: automation_id.to_string(),
+                    dark_threshold,
+                }]
+            })
+            .unwrap_or_default(),
         "zigbee_connectivity" => resource
             .get("status")
             .and_then(|s| s.as_str())
@@ -237,4 +271,72 @@ fn parse_resource_update(resource: &serde_json::Value) -> Vec<HueLiveEvent> {
 /// Convert broadcast receiver into an SSE-compatible stream
 pub fn subscribe(tx: &broadcast::Sender<HueLiveEvent>) -> broadcast::Receiver<HueLiveEvent> {
     tx.subscribe()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn events(resource: serde_json::Value) -> Vec<serde_json::Value> {
+        parse_resource_update(&resource)
+            .iter()
+            .map(|e| serde_json::to_value(e).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn member_update_carries_enabled_sensitivity_and_motion() {
+        let events = events(json!({
+            "id": "a-1", "type": "convenience_area_motion", "enabled": false,
+            "sensitivity": {"sensitivity": 3},
+            "motion": {"motion_report": {"changed": "2026-10-04T09:00:00Z", "motion": true}},
+        }));
+
+        assert_eq!(
+            events,
+            [
+                json!({"type": "motion_enabled", "id": "a-1", "enabled": false}),
+                json!({"type": "motion_sensitivity", "id": "a-1", "sensitivity": 3}),
+                json!({"type": "motion", "id": "a-1", "motion": true,
+                       "updatedAt": "2026-10-04T09:00:00Z"}),
+            ]
+        );
+    }
+
+    #[test]
+    fn grouped_motion_update_carries_only_motion() {
+        let events = events(json!({
+            "id": "g-1", "type": "grouped_motion", "enabled": true,
+            "motion": {"motion_report": {"changed": "2026-10-04T09:00:00Z", "motion": false}},
+        }));
+
+        assert_eq!(
+            events,
+            [json!({"type": "motion", "id": "g-1", "motion": false,
+                    "updatedAt": "2026-10-04T09:00:00Z"})]
+        );
+    }
+
+    #[test]
+    fn automation_update_carries_daylight_null_when_ignored() {
+        let configuration = |t: u32| {
+            json!({"light_level": {"daylight": {"daylight_sensitivity":
+                {"settings": {"dark_threshold": t, "offset": 7000}}}}})
+        };
+
+        assert_eq!(
+            events(json!({"id": "b-1", "type": "behavior_instance",
+                          "configuration": configuration(14477)})),
+            [json!({"type": "daylight", "automationId": "b-1", "darkThreshold": 14477})]
+        );
+        assert_eq!(
+            events(json!({"id": "b-1", "type": "behavior_instance",
+                          "configuration": configuration(65534)})),
+            [json!({"type": "daylight", "automationId": "b-1", "darkThreshold": null})]
+        );
+        assert!(
+            events(json!({"id": "b-2", "type": "behavior_instance", "enabled": false})).is_empty()
+        );
+    }
 }

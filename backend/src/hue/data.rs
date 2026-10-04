@@ -3,8 +3,42 @@ use std::sync::Arc;
 
 use crate::AppState;
 
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+
 use super::client::{hue_fetch, HueError};
 use super::models::*;
+use super::motion::{build_motion_units, MotionInputs};
+
+/// The bridge's resources, split by `type`.
+struct Resources(HashMap<String, Vec<Value>>);
+
+impl Resources {
+    fn split(all: Vec<Value>) -> Self {
+        let mut by_type: HashMap<String, Vec<Value>> = HashMap::new();
+        for resource in all {
+            let rtype = resource
+                .get("type")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned();
+            by_type.entry(rtype).or_default().push(resource);
+        }
+        Self(by_type)
+    }
+
+    /// Resources of one type; none when the bridge firmware predates the type.
+    fn take<T: DeserializeOwned>(&mut self, rtype: &str) -> Result<Vec<T>, HueError> {
+        let items = self.0.remove(rtype).unwrap_or_default();
+        serde_json::from_value(Value::Array(items)).map_err(|source| {
+            tracing::error!(rtype, error = %source, "Failed to decode Hue resources");
+            HueError::DecodeResource {
+                rtype: rtype.to_owned(),
+                source,
+            }
+        })
+    }
+}
 
 pub async fn fetch_hue_data(state: &Arc<AppState>) -> Result<HueResponse, HueError> {
     // Check cache first
@@ -21,20 +55,26 @@ pub async fn fetch_hue_data(state: &Arc<AppState>) -> Result<HueResponse, HueErr
 async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueError> {
     let room_type_map = build_room_type_map(&state.settings.hue_room_types);
 
-    // 7 parallel fetches
-    let (rooms, temps, grouped_lights, device_powers, devices, motions, connectivity) = tokio::try_join!(
-        hue_fetch::<RoomResource>(state, "/clip/v2/resource/room"),
-        hue_fetch::<TemperatureResource>(state, "/clip/v2/resource/temperature"),
-        hue_fetch::<GroupedLightResource>(state, "/clip/v2/resource/grouped_light"),
-        hue_fetch::<DevicePowerResource>(state, "/clip/v2/resource/device_power"),
-        hue_fetch::<DeviceResource>(state, "/clip/v2/resource/device"),
-        hue_fetch::<MotionResource>(state, "/clip/v2/resource/motion"),
-        hue_fetch::<ZigbeeConnectivityResource>(state, "/clip/v2/resource/zigbee_connectivity"),
-    )?;
+    // One request for everything: the bridge answers a burst of parallel
+    // per-type fetches with 429.
+    let mut resources =
+        Resources::split(hue_fetch::<Value>(state, "/clip/v2/resource").await?.data);
+    let rooms: Vec<RoomResource> = resources.take("room")?;
+    let temps: Vec<TemperatureResource> = resources.take("temperature")?;
+    let grouped_lights: Vec<GroupedLightResource> = resources.take("grouped_light")?;
+    let device_powers: Vec<DevicePowerResource> = resources.take("device_power")?;
+    let devices: Vec<DeviceResource> = resources.take("device")?;
+    let motions: Vec<MotionResource> = resources.take("motion")?;
+    let connectivity: Vec<ZigbeeConnectivityResource> = resources.take("zigbee_connectivity")?;
+    let areas: Vec<ConvenienceAreaMotionResource> = resources.take("convenience_area_motion")?;
+    let area_configs: Vec<MotionAreaConfigurationResource> =
+        resources.take("motion_area_configuration")?;
+    let grouped_motions: Vec<GroupedMotionResource> = resources.take("grouped_motion")?;
+    let service_groups: Vec<ServiceGroupResource> = resources.take("service_group")?;
+    let automations: Vec<BehaviorInstanceResource> = resources.take("behavior_instance")?;
 
     // device ID → battery level
     let battery_by_device: HashMap<&str, u8> = device_powers
-        .data
         .iter()
         .filter_map(|dp| {
             dp.power_state
@@ -45,7 +85,6 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
 
     // device ID → room
     let room_by_device: HashMap<&str, &RoomResource> = rooms
-        .data
         .iter()
         .flat_map(|room| {
             room.children
@@ -57,34 +96,18 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
 
     // device ID → name
     let device_name_by_id: HashMap<&str, &str> = devices
-        .data
         .iter()
         .map(|d| (d.id.as_str(), d.metadata.name.as_str()))
         .collect();
 
-    // device ID → motion data
-    let motion_by_device: HashMap<&str, (bool, Option<&str>, bool)> = motions
-        .data
-        .iter()
-        .map(|m| {
-            let (motion, updated_at) = match &m.motion.motion_report {
-                Some(report) => (report.motion, Some(report.changed.as_str())),
-                None => (m.motion.motion.unwrap_or(false), None),
-            };
-            (m.owner.rid.as_str(), (motion, updated_at, m.enabled))
-        })
-        .collect();
-
     // device ID → connected
     let connected_by_device: HashMap<&str, bool> = connectivity
-        .data
         .iter()
         .map(|c| (c.owner.rid.as_str(), c.status == "connected"))
         .collect();
 
     // Build sensors from temperature resources
     let sensors: Vec<Sensor> = temps
-        .data
         .iter()
         .map(|temp| {
             let room = room_by_device.get(temp.owner.rid.as_str()).copied();
@@ -116,8 +139,6 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
 
             let battery = battery_by_device.get(temp.owner.rid.as_str()).copied();
 
-            let motion_data = motion_by_device.get(temp.owner.rid.as_str());
-
             Sensor {
                 id: temp.id.clone(),
                 device_id: temp.owner.rid.clone(),
@@ -126,9 +147,6 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
                 room_type,
                 enabled: temp.enabled,
                 battery,
-                motion: motion_data.map(|(m, _, _)| *m),
-                motion_updated_at: motion_data.and_then(|(_, u, _)| u.map(String::from)),
-                motion_enabled: motion_data.map(|(_, _, e)| *e),
                 connected: connected_by_device
                     .get(temp.owner.rid.as_str())
                     .copied()
@@ -139,10 +157,9 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
 
     // Build groups from grouped lights that belong to rooms
     let room_by_id: HashMap<&str, &RoomResource> =
-        rooms.data.iter().map(|r| (r.id.as_str(), r)).collect();
+        rooms.iter().map(|r| (r.id.as_str(), r)).collect();
 
     let groups: Vec<Group> = grouped_lights
-        .data
         .iter()
         .filter(|gl| gl.owner.rtype == "room")
         .map(|gl| Group {
@@ -158,7 +175,21 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
         })
         .collect();
 
-    Ok(HueResponse { sensors, groups })
+    let motion_units = build_motion_units(&MotionInputs {
+        motions: &motions,
+        areas: &areas,
+        area_configs: &area_configs,
+        grouped: &grouped_motions,
+        service_groups: &service_groups,
+        automations: &automations,
+        device_names: &device_name_by_id,
+    });
+
+    Ok(HueResponse {
+        sensors,
+        groups,
+        motion_units,
+    })
 }
 
 fn build_room_type_map(json_str: &str) -> HashMap<String, RoomType> {
