@@ -3,7 +3,6 @@ import { formatDistanceToNow } from "date-fns";
 import { fi } from "date-fns/locale/fi";
 import { ChevronDown } from "lucide-react";
 import { type FC, memo, type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
-import { useMediaQuery } from "usehooks-ts";
 
 import { api } from "../api";
 import useScreenshotMode, { anonymize } from "../hooks/useScreenshotMode";
@@ -35,6 +34,8 @@ const post = (path: string, body: unknown) =>
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
   });
 
 /**
@@ -46,17 +47,13 @@ const useBridgeWrite = <T,>(actual: T) => {
   const [failed, setFailed] = useState(false);
   if (pending && Object.is(pending.value, actual)) setPending(null);
 
-  const write = (value: T, request: () => Promise<Response>) => {
+  const write = (value: T, request: () => Promise<unknown>) => {
     setPending({ value });
     setFailed(false);
-    request()
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      })
-      .catch(() => {
-        setPending(null);
-        setFailed(true);
-      });
+    request().catch(() => {
+      setPending(null);
+      setFailed(true);
+    });
   };
 
   return { value: pending ? pending.value : actual, write, failed };
@@ -77,7 +74,7 @@ const Motion: FC<MotionProps> = ({ className, units = [], error }) => {
       className={className}
       css={{
         display: "grid",
-        gridTemplateColumns: "20px minmax(0, 1fr) auto auto 20px",
+        gridTemplateColumns: "20px minmax(0, 1fr) auto auto 20px auto",
         columnGap: 8,
         boxSizing: "border-box",
         width: "100%",
@@ -88,6 +85,8 @@ const Motion: FC<MotionProps> = ({ className, units = [], error }) => {
         borderRadius: theme.border.radius,
         padding: "1em",
         [mq[0]]: {
+          // Status and time move under the name.
+          gridTemplateColumns: "20px minmax(0, 1fr) 20px auto",
           padding: "0.5em",
         },
       }}
@@ -119,20 +118,48 @@ type UnitRowProps = {
 
 const UnitRow: FC<UnitRowProps> = ({ unit, open, onToggle }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery("(max-width: 600px)");
   const demo = useScreenshotMode();
 
-  const enabled = unit.members.some((m) => m.enabled);
+  const toggle = useBridgeWrite(unit.members.some((m) => m.enabled));
+  const enabled = toggle.value;
   const active = enabled && unit.motion;
 
+  const setEnabled = (next: boolean) =>
+    toggle.write(next, async () => {
+      // One at a time: the bridge answers a burst of writes with 429.
+      for (const member of unit.members.filter((m) => m.enabled !== next)) {
+        await post(`/api/hue/setMotionEnabled/${member.id}`, { kind: member.kind, enabled: next });
+      }
+    });
+
+  const status = !enabled ? "pois käytöstä" : unit.motion ? "liikettä" : "ei liikettä";
+  const since =
+    enabled && unit.motionUpdatedAt
+      ? formatDistanceToNow(new Date(unit.motionUpdatedAt), { addSuffix: true, locale: fi })
+      : null;
+  const statusCss = {
+    color: active ? theme.colors.activity.on : theme.colors.text.muted,
+    fontWeight: active ? 600 : 400,
+    whiteSpace: "nowrap",
+    transition: "color 0.3s ease",
+  } as const;
+  const desktopOnly = { [mq[0]]: { display: "none" } };
+
   return (
-    <div css={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "subgrid" }}>
+    <div
+      css={{
+        gridColumn: "1 / -1",
+        display: "grid",
+        gridTemplateColumns: "subgrid",
+        alignItems: "center",
+      }}
+    >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         css={{
-          gridColumn: "1 / -1",
+          gridColumn: "1 / -2",
           display: "grid",
           gridTemplateColumns: "subgrid",
           alignItems: "center",
@@ -156,42 +183,42 @@ const UnitRow: FC<UnitRowProps> = ({ unit, open, onToggle }) => {
             animation: active ? `${motionPulse} 1.8s ease-out infinite` : "none",
           }}
         />
-        <span
-          css={{
-            fontWeight: active ? 600 : 400,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            textTransform: "lowercase",
-          }}
-        >
-          {demo ? anonymize(unit.id, "anturi") : unit.name}
+        <span css={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <span
+            css={{
+              fontWeight: active ? 600 : 400,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              textTransform: "lowercase",
+            }}
+          >
+            {demo ? anonymize(unit.id, "anturi") : unit.name}
+          </span>
+          <span
+            css={{
+              ...statusCss,
+              display: "none",
+              fontSize: 13,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              [mq[0]]: { display: "block" },
+            }}
+          >
+            {since ? `${status} · ${since}` : status}
+          </span>
         </span>
-        <span
-          css={{
-            color: active ? theme.colors.activity.on : theme.colors.text.muted,
-            fontWeight: active ? 600 : 400,
-            textAlign: "right",
-            whiteSpace: "nowrap",
-            transition: "color 0.3s ease",
-          }}
-        >
-          {!enabled ? "pois käytöstä" : unit.motion ? "liikettä" : "ei liikettä"}
-        </span>
+        <span css={{ ...statusCss, textAlign: "right", ...desktopOnly }}>{status}</span>
         <span
           css={{
             color: theme.colors.text.muted,
             fontSize: 13,
             textAlign: "right",
             whiteSpace: "nowrap",
+            ...desktopOnly,
           }}
         >
-          {enabled && unit.motionUpdatedAt
-            ? formatDistanceToNow(new Date(unit.motionUpdatedAt), {
-                addSuffix: !isMobile,
-                locale: fi,
-              })
-            : "—"}
+          {since ?? "—"}
         </span>
         <ChevronDown
           size={18}
@@ -203,6 +230,14 @@ const UnitRow: FC<UnitRowProps> = ({ unit, open, onToggle }) => {
           }}
         />
       </button>
+      <span css={{ display: "flex", paddingRight: 4 }}>
+        <Switch checked={enabled} label={`${unit.name} käytössä`} onChange={setEnabled} />
+      </span>
+      {toggle.failed && (
+        <div css={{ gridColumn: "1 / -1", paddingLeft: 32 }}>
+          <Refusal />
+        </div>
+      )}
       {open && <UnitSettings unit={unit} />}
     </div>
   );
