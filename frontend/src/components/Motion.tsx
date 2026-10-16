@@ -74,7 +74,7 @@ const Motion: FC<MotionProps> = ({ className, units = [], error }) => {
       className={className}
       css={{
         display: "grid",
-        gridTemplateColumns: "20px minmax(0, 1fr) auto auto 20px auto",
+        gridTemplateColumns: "20px minmax(0, 1fr) auto auto auto 20px",
         columnGap: 8,
         boxSizing: "border-box",
         width: "100%",
@@ -84,9 +84,10 @@ const Motion: FC<MotionProps> = ({ className, units = [], error }) => {
         boxShadow: theme.shadows.main,
         borderRadius: theme.border.radius,
         padding: "1em",
+        "& > * + *": { borderTop: `1px solid ${theme.colors.border}` },
         [mq[0]]: {
           // Status and time move under the name.
-          gridTemplateColumns: "20px minmax(0, 1fr) 20px auto",
+          gridTemplateColumns: "20px minmax(0, 1fr) auto 20px",
           padding: "0.5em",
         },
       }}
@@ -159,11 +160,12 @@ const UnitRow: FC<UnitRowProps> = ({ unit, open, onToggle }) => {
         onClick={onToggle}
         aria-expanded={open}
         css={{
-          gridColumn: "1 / -2",
+          gridColumn: "1 / -1",
+          gridRow: 1,
           display: "grid",
           gridTemplateColumns: "subgrid",
           alignItems: "center",
-          padding: "8px 4px",
+          padding: "12px 4px",
           border: "none",
           background: "transparent",
           font: "inherit",
@@ -224,13 +226,15 @@ const UnitRow: FC<UnitRowProps> = ({ unit, open, onToggle }) => {
           size={18}
           aria-hidden
           css={{
+            gridColumn: -2,
             color: theme.colors.text.muted,
             transform: open ? "rotate(180deg)" : "none",
             transition: `transform ${theme.durations.fast} ease`,
           }}
         />
       </button>
-      <span css={{ display: "flex", paddingRight: 4 }}>
+      {/* Laid over the button's cell rather than nested: a button can't hold a button. */}
+      <span css={{ gridColumn: -3, gridRow: 1, zIndex: 1, display: "flex" }}>
         <Switch checked={enabled} label={`${unit.name} käytössä`} onChange={setEnabled} />
       </span>
       {toggle.failed && (
@@ -251,7 +255,7 @@ const UnitSettings: FC<{ unit: MotionUnit }> = ({ unit }) => {
         gridColumn: "1 / -1",
         display: "flex",
         flexDirection: "column",
-        margin: "0 4px 8px 32px",
+        margin: "0 4px 12px 32px",
         padding: "4px 12px",
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.border.radius,
