@@ -23,14 +23,18 @@ type SensorReading = {
   recordedAt: string;
 };
 
-const useSensorTrend = (sensors: Sensor[]): Trend | null => {
+/** The sensors as one temperature: their mean, or with `shade` the coolest. */
+const foldTemps = (temps: number[], shade: boolean) =>
+  shade ? Math.min(...temps) : temps.reduce((a, b) => a + b, 0) / temps.length;
+
+const useSensorTrend = (sensors: Sensor[], shade = false): Trend | null => {
   const [trend, setTrend] = useState<Trend | null>(null);
 
   const enabledSensors = sensors.filter((s) => s.enabled && s.connected);
-  const currentAvg =
-    enabledSensors.length > 0
-      ? enabledSensors.reduce((sum, s) => sum + (s.temperature ?? 0), 0) / enabledSensors.length
-      : null;
+  const currentTemps = enabledSensors
+    .map((s) => s.temperature)
+    .filter((t): t is number => t !== undefined);
+  const current = currentTemps.length > 0 ? foldTemps(currentTemps, shade) : null;
 
   const sensorIds = enabledSensors
     .map((s) => s.id)
@@ -38,7 +42,7 @@ const useSensorTrend = (sensors: Sensor[]): Trend | null => {
     .join(",");
 
   useEffect(() => {
-    if (!sensorIds || currentAvg === null) return;
+    if (!sensorIds || current === null) return;
     const controller = new AbortController();
 
     fetch(api("/api/history/sensors?hours=2"), { signal: controller.signal })
@@ -58,17 +62,14 @@ const useSensorTrend = (sensors: Sensor[]): Trend | null => {
           }
         }
 
-        const oldAvg =
-          [...oldestBySensor.values()].reduce((a, b) => a + b, 0) / oldestBySensor.size;
-
-        setTrend(getTrend(currentAvg - oldAvg));
+        setTrend(getTrend(current - foldTemps([...oldestBySensor.values()], shade)));
       })
       .catch((err) => {
         if (err.name !== "AbortError") setTrend(null);
       });
 
     return () => controller.abort();
-  }, [sensorIds, currentAvg]);
+  }, [sensorIds, current, shade]);
 
   return trend;
 };
