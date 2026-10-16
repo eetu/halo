@@ -188,10 +188,6 @@ const App = () => {
     );
   }, [sensors]);
 
-  const outsideTemp = Math.min(
-    ...outside.map((s) => s.temperature).filter((t): t is number => t !== undefined),
-  );
-
   const theme = useTheme();
 
   return (
@@ -329,7 +325,7 @@ const App = () => {
                   sensors={outside}
                   title="ulkona"
                   error={error}
-                  temperatureOverride={outsideTemp}
+                  sunAndShade
                 />
                 <TemperatureBox
                   css={temperatureCss}

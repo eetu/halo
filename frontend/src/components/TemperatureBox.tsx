@@ -3,7 +3,7 @@ import classNames from "classnames";
 import { type FC, memo } from "react";
 
 import useScreenshotMode, { anonymize } from "../hooks/useScreenshotMode";
-import useSensorHistorySummary from "../hooks/useSensorHistorySummary";
+import useSensorHistorySummary, { type SeriesKind } from "../hooks/useSensorHistorySummary";
 import useSensorTrend from "../hooks/useSensorTrend";
 import { mq } from "../mq";
 import type { Sensor } from "../types/hue";
@@ -18,33 +18,47 @@ type TemperatureBoxProps = {
   title: React.ReactNode;
   sensors?: Sensor[];
   error?: boolean;
-  temperatureOverride?: number;
+  /** Outdoor sensors, some catching the sun: the headline is the coolest, history splits shade from sun. */
+  sunAndShade?: boolean;
 };
 
 const isBatteryLow = (sensor: Sensor) => sensor.battery !== undefined && sensor.battery < 2;
 
 const TREND_PILL_THRESHOLD = 0.3;
 
+const SERIES_LABEL: Record<SeriesKind, string> = {
+  all: "24h",
+  shade: "varjossa",
+  sun: "auringossa",
+};
+
 const TemperatureBox: React.FC<TemperatureBoxProps> = ({
   className,
   title,
   sensors = [],
   error,
-  temperatureOverride,
+  sunAndShade = false,
 }) => {
   const theme = useTheme();
-  const trend = useSensorTrend(sensors);
-  const summary = useSensorHistorySummary(sensors);
+  const trend = useSensorTrend(sensors, sunAndShade);
+  const summary = useSensorHistorySummary(sensors, sunAndShade);
   const demo = useScreenshotMode();
 
   const enabledSensors = sensors?.filter((r) => r.enabled);
+  const temperatures = enabledSensors
+    .map((s) => s.temperature)
+    .filter((t): t is number => t !== undefined);
 
-  const temperature =
-    temperatureOverride ??
-    enabledSensors.reduce((acc, room) => {
-      if (room.temperature === undefined) return acc;
-      return acc + room.temperature;
-    }, 0) / enabledSensors.length;
+  const temperature = sunAndShade
+    ? Math.min(...temperatures)
+    : temperatures.reduce((a, b) => a + b, 0) / enabledSensors.length;
+
+  const seriesColor: Record<SeriesKind, string> = {
+    all: theme.colors.activity.on,
+    shade: theme.colors.cool,
+    sun: theme.colors.warm,
+  };
+  const sparkline = summary.series.map((s) => ({ points: s.points, color: seriesColor[s.kind] }));
 
   const sensorCount = enabledSensors.length;
   const lowestBatterySensor = sensors
@@ -133,7 +147,7 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
               />
             );
           })}
-          {summary.points.length >= 2 && (
+          {summary.series.length > 0 && (
             <div
               css={{
                 display: "none",
@@ -147,22 +161,32 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
                 },
               }}
             >
-              <div
-                css={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  ...theme.typography.caption,
-                  color: theme.colors.text.muted,
-                }}
-              >
-                <span>24h</span>
-                {summary.minTemp !== null && summary.maxTemp !== null && (
-                  <span>
-                    {`min ${Math.round(summary.minTemp)}° · max ${Math.round(summary.maxTemp)}°`}
+              {summary.series.map((s) => (
+                <div
+                  key={s.kind}
+                  css={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    ...theme.typography.caption,
+                    color: theme.colors.text.muted,
+                  }}
+                >
+                  <span css={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {s.kind !== "all" && (
+                      <span
+                        css={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 2,
+                          backgroundColor: seriesColor[s.kind],
+                        }}
+                      />
+                    )}
+                    {SERIES_LABEL[s.kind]}
                   </span>
-                )}
-              </div>
-              <Sparkline points={summary.points} color={theme.colors.activity.on} height={48} />
+                  <span>{`min ${Math.round(s.min)}° · max ${Math.round(s.max)}°`}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -174,13 +198,7 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "space-between",
-          [mq[0]]: {
-            flexDirection: "row",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 16,
-          },
+          [mq[0]]: { alignItems: "stretch", gap: 4 },
         }}
       >
         {lowestBatterySensor?.battery !== undefined && (
@@ -198,12 +216,9 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
         <div
           css={{
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
-            [mq[0]]: {
-              alignItems: "flex-start",
-              gap: 4,
-            },
+            justifyContent: "space-between",
+            gap: 8,
           }}
         >
           <div
@@ -222,7 +237,33 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
                 cloud_off
               </Icon>
             )}
+            <span
+              css={{
+                display: "none",
+                [mq[0]]: {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  ...theme.typography.caption,
+                  letterSpacing: "normal",
+                },
+              }}
+            >
+              {`· ${sensorCount} ${sensorCount === 1 ? "anturi" : "anturia"}`}
+              {lowestBatterySensor?.battery !== undefined && (
+                <Icon size={16} css={{ color: theme.colors.error }}>
+                  {`battery_${getBatteryStr(lowestBatterySensor.battery)}`}
+                </Icon>
+              )}
+            </span>
           </div>
+          {summary.diff1h !== null && Math.abs(summary.diff1h) >= TREND_PILL_THRESHOLD && (
+            <div css={{ display: "none", [mq[0]]: { display: "flex" } }}>
+              <TrendPill diff={summary.diff1h} />
+            </div>
+          )}
+        </div>
+        <div css={{ display: "flex", alignItems: "center", gap: 20 }}>
           <div
             css={{
               position: "relative",
@@ -255,40 +296,11 @@ const TemperatureBox: React.FC<TemperatureBoxProps> = ({
               </div>
             )}
           </div>
-        </div>
-
-        <div
-          css={{
-            display: "none",
-            [mq[0]]: {
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              justifyContent: "center",
-              gap: 8,
-              minHeight: "100%",
-            },
-          }}
-        >
-          {summary.diff1h !== null && Math.abs(summary.diff1h) >= TREND_PILL_THRESHOLD && (
-            <TrendPill diff={summary.diff1h} />
-          )}
-          <span
-            css={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              ...theme.typography.caption,
-              color: theme.colors.text.muted,
-            }}
-          >
-            {`${sensorCount} ${sensorCount === 1 ? "anturi" : "anturia"}`}
-            {lowestBatterySensor?.battery !== undefined && (
-              <Icon size={16} css={{ color: theme.colors.error }}>
-                {`battery_${getBatteryStr(lowestBatterySensor.battery)}`}
-              </Icon>
-            )}
-          </span>
+          <Sparkline
+            series={sparkline}
+            height={44}
+            css={{ display: "none", [mq[0]]: { display: "block", flex: 1, minWidth: 0 } }}
+          />
         </div>
       </div>
     </Box>

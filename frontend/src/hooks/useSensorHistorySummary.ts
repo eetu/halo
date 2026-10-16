@@ -12,22 +12,41 @@ type Reading = {
 
 const HOURS = 24;
 const BUCKETS = 48;
+const BUCKETS_PER_HOUR = BUCKETS / HOURS;
+
+export type SeriesKind = "all" | "shade" | "sun";
+
+export type Series = {
+  kind: SeriesKind;
+  /** One point per bucket with readings; every series of a summary drops the same buckets. */
+  points: number[];
+  min: number;
+  max: number;
+};
 
 type Summary = {
-  points: number[];
-  minTemp: number | null;
-  maxTemp: number | null;
+  /** `[all]`, or `[shade, sun]` when split — lowest first. */
+  series: Series[];
+  /** Change of the first series over the last hour. */
   diff1h: number | null;
 };
 
-const empty: Summary = {
-  points: [],
-  minTemp: null,
-  maxTemp: null,
-  diff1h: null,
+const empty: Summary = { series: [], diff1h: null };
+
+const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
+
+const FOLD: Record<SeriesKind, (sensorMeans: number[]) => number> = {
+  all: mean,
+  shade: (v) => Math.min(...v),
+  sun: (v) => Math.max(...v),
 };
 
-const useSensorHistorySummary = (sensors: Sensor[]): Summary => {
+/**
+ * 24 h of the sensors' history in half-hour buckets. `split` is for outdoor
+ * sensors that catch the sun at times: each bucket folds into its coolest
+ * sensor (shade, the air temperature) and its warmest (sun) instead of the mean.
+ */
+const useSensorHistorySummary = (sensors: Sensor[], split = false): Summary => {
   const { data } = useSWR<Reading[]>(api(`/api/history/sensors?hours=${HOURS}`), fetcher, {
     refreshInterval: 300_000,
     refreshWhenHidden: true,
@@ -46,45 +65,43 @@ const useSensorHistorySummary = (sensors: Sensor[]): Summary => {
     if (filtered.length === 0) return empty;
 
     const latest = filtered.reduce((acc, r) => Math.max(acc, new Date(r.recordedAt).getTime()), 0);
-    const windowMs = HOURS * 3600_000;
-    const bucketMs = windowMs / BUCKETS;
-    const windowStart = latest - windowMs;
-    const buckets = Array.from({ length: BUCKETS }, () => ({
-      sum: 0,
-      count: 0,
-    }));
+    const bucketMs = 3600_000 / BUCKETS_PER_HOUR;
+    const windowStart = latest - HOURS * 3600_000;
+    const buckets = Array.from(
+      { length: BUCKETS },
+      () => new Map<string, { sum: number; count: number }>(),
+    );
     for (const r of filtered) {
       const t = new Date(r.recordedAt).getTime();
-      const idx = Math.floor((t - windowStart) / bucketMs);
-      if (idx < 0 || idx >= BUCKETS) continue;
-      buckets[idx].sum += r.temperature;
-      buckets[idx].count++;
+      const idx = Math.min(BUCKETS - 1, Math.floor((t - windowStart) / bucketMs));
+      if (idx < 0) continue;
+      const acc = buckets[idx].get(r.sensorId) ?? { sum: 0, count: 0 };
+      acc.sum += r.temperature;
+      acc.count++;
+      buckets[idx].set(r.sensorId, acc);
     }
-    const points = buckets
-      .map((b) => (b.count > 0 ? b.sum / b.count : null))
-      .filter((v): v is number => v !== null);
+    const sensorMeans = buckets.map((b) => [...b.values()].map((a) => a.sum / a.count));
 
-    const temps = filtered.map((r) => r.temperature);
-    const minTemp = Math.min(...temps);
-    const maxTemp = Math.max(...temps);
+    const kinds: SeriesKind[] = split && idSet.size > 1 ? ["shade", "sun"] : ["all"];
+    const folded = kinds.map((kind) =>
+      sensorMeans.map((v) => (v.length > 0 ? FOLD[kind](v) : null)),
+    );
 
-    const oneHourAgo = latest - 3600_000;
-    const twoHoursAgo = latest - 2 * 3600_000;
-    const recent: number[] = [];
-    const prior: number[] = [];
-    for (const r of filtered) {
-      const t = new Date(r.recordedAt).getTime();
-      if (t >= oneHourAgo) recent.push(r.temperature);
-      else if (t >= twoHoursAgo) prior.push(r.temperature);
-    }
-    const avg = (arr: number[]) =>
-      arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0) / arr.length;
-    const recentAvg = avg(recent);
-    const priorAvg = avg(prior);
-    const diff1h = recentAvg !== null && priorAvg !== null ? recentAvg - priorAvg : null;
+    const series = kinds.map((kind, i) => {
+      const points = folded[i].filter((v): v is number => v !== null);
+      return { kind, points, min: Math.min(...points), max: Math.max(...points) };
+    });
 
-    return { points, minTemp, maxTemp, diff1h };
-  }, [data, ids]);
+    const hourMean = (values: (number | null)[]) => {
+      const present = values.filter((v): v is number => v !== null);
+      return present.length > 0 ? mean(present) : null;
+    };
+    const recent = hourMean(folded[0].slice(-BUCKETS_PER_HOUR));
+    const prior = hourMean(folded[0].slice(-2 * BUCKETS_PER_HOUR, -BUCKETS_PER_HOUR));
+    const diff1h = recent !== null && prior !== null ? recent - prior : null;
+
+    return { series, diff1h };
+  }, [data, ids, split]);
 };
 
 export default useSensorHistorySummary;

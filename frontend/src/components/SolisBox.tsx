@@ -2,12 +2,31 @@ import { useTheme } from "@emotion/react";
 import { memo } from "react";
 import useSWR from "swr";
 
-import { api, type HttpError, jsonFetcher } from "../api";
+import { api, fetcher, type HttpError, jsonFetcher } from "../api";
 import { mq } from "../mq";
-import type { SolisData } from "../types/solis";
+import type { SolisData, SolisReading } from "../types/solis";
 import Box, { DrawerRow } from "./Box";
 import Icon from "./Icon";
 import OfflineState from "./OfflineState";
+import Sparkline from "./Sparkline";
+
+const PV_HOURS = 24;
+const PV_BUCKETS = 48;
+
+/** Mean PV power per half hour; an empty bucket is an offline inverter (not recorded), so 0. */
+const pvBuckets = (readings: SolisReading[], now: number): number[] => {
+  const bucketMs = (PV_HOURS * 3600_000) / PV_BUCKETS;
+  const start = now - PV_HOURS * 3600_000;
+  const buckets = Array.from({ length: PV_BUCKETS }, () => ({ sum: 0, count: 0 }));
+  for (const r of readings) {
+    const t = new Date(r.recordedAt).getTime();
+    const idx = Math.min(PV_BUCKETS - 1, Math.floor((t - start) / bucketMs));
+    if (idx < 0) continue;
+    buckets[idx].sum += r.power;
+    buckets[idx].count++;
+  }
+  return buckets.map((b) => (b.count > 0 ? b.sum / b.count : 0));
+};
 
 type SolisBoxProps = {
   className?: string;
@@ -21,6 +40,11 @@ const SolisBox: React.FC<SolisBoxProps> = ({ className }) => {
     refreshWhenHidden: true,
     shouldRetryOnError: false,
   });
+  const { data: history } = useSWR<SolisReading[]>(
+    api(`/api/history/solis?hours=${PV_HOURS}`),
+    fetcher,
+    { refreshInterval: 300_000, refreshWhenHidden: true },
+  );
 
   // Not configured: hide entirely.
   if (error?.status === 503) return null;
@@ -45,6 +69,7 @@ const SolisBox: React.FC<SolisBoxProps> = ({ className }) => {
 
   const isAlarm = data.status === 3;
   const displayPower = data.power.toFixed(1);
+  const pvPoints = history?.length ? pvBuckets(history, Date.now()) : [];
 
   const batteryLabel =
     data.battery_power !== null
@@ -97,22 +122,19 @@ const SolisBox: React.FC<SolisBoxProps> = ({ className }) => {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "space-between",
           flex: 1,
-          [mq[0]]: {
-            flexDirection: "row",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 16,
-          },
+          [mq[0]]: { alignItems: "stretch", gap: 4 },
         }}
       >
         <div
           css={{
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
-            [mq[0]]: { alignItems: "flex-start", gap: 4 },
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "2px 8px",
+            ...theme.typography.caption,
+            color: theme.colors.text.muted,
           }}
         >
           <div
@@ -121,7 +143,6 @@ const SolisBox: React.FC<SolisBoxProps> = ({ className }) => {
               alignItems: "center",
               gap: "0.3em",
               ...theme.typography.label,
-              color: theme.colors.text.muted,
               letterSpacing: "0.04em",
             }}
           >
@@ -140,7 +161,38 @@ const SolisBox: React.FC<SolisBoxProps> = ({ className }) => {
                 cloud_off
               </Icon>
             )}
+            <span
+              css={{
+                display: "none",
+                [mq[0]]: {
+                  display: "inline",
+                  marginLeft: "0.3em",
+                  ...theme.typography.caption,
+                  letterSpacing: "normal",
+                  fontVariantNumeric: "tabular-nums",
+                },
+              }}
+            >
+              {`· ${data.today_energy} ${data.today_energy_unit} tänään`}
+            </span>
           </div>
+          {data.battery_soc !== null && (
+            <span
+              css={{
+                display: "none",
+                [mq[0]]: { display: "inline", fontVariantNumeric: "tabular-nums" },
+              }}
+            >
+              {[
+                `akku ${Math.round(data.battery_soc)} %`,
+                batteryLabel !== "lepotila" && batteryLabel,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          )}
+        </div>
+        <div css={{ display: "flex", alignItems: "center", gap: 20 }}>
           <div
             css={{
               marginTop: "5px",
@@ -155,31 +207,11 @@ const SolisBox: React.FC<SolisBoxProps> = ({ className }) => {
           >
             {displayPower}
           </div>
-        </div>
-
-        <div
-          css={{
-            display: "none",
-            [mq[0]]: {
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              justifyContent: "center",
-              gap: 6,
-              ...theme.typography.caption,
-              color: theme.colors.text.muted,
-            },
-          }}
-        >
-          <span css={{ fontVariantNumeric: "tabular-nums" }}>
-            {`${data.today_energy} ${data.today_energy_unit} tänään`}
-          </span>
-          {data.battery_soc !== null && (
-            <span css={{ fontVariantNumeric: "tabular-nums" }}>
-              {`akku ${Math.round(data.battery_soc)} %`}
-            </span>
-          )}
-          {batteryLabel && batteryLabel !== "lepotila" && <span>{batteryLabel}</span>}
+          <Sparkline
+            series={[{ points: pvPoints, color: theme.colors.pv }]}
+            height={44}
+            css={{ display: "none", [mq[0]]: { display: "block", flex: 1, minWidth: 0 } }}
+          />
         </div>
       </div>
     </Box>
