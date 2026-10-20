@@ -96,6 +96,9 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
         })
         .collect();
 
+    let device_by_id: HashMap<&str, &DeviceResource> =
+        devices.iter().map(|d| (d.id.as_str(), d)).collect();
+
     // device ID → name
     let device_name_by_id: HashMap<&str, &str> = devices
         .iter()
@@ -157,6 +160,29 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
         })
         .collect();
 
+    let accessories: Vec<Accessory> = device_powers
+        .iter()
+        .map(|dp| {
+            let id = dp.owner.rid.as_str();
+            let device = device_by_id.get(id);
+            Accessory {
+                id: id.to_owned(),
+                name: device.map_or(id, |d| d.metadata.name.as_str()).to_owned(),
+                product: device
+                    .and_then(|d| d.product_data.as_ref())
+                    .map(|p| p.product_name.clone()),
+                room: room_by_device.get(id).map(|r| r.metadata.name.clone()),
+                battery: dp.power_state.battery_level,
+                battery_state: dp
+                    .power_state
+                    .battery_state
+                    .as_deref()
+                    .and_then(BatteryState::parse),
+                connected: connected_by_device.get(id).copied().unwrap_or(true),
+            }
+        })
+        .collect();
+
     // Build groups from grouped lights that belong to rooms
     let room_by_id: HashMap<&str, &RoomResource> =
         rooms.iter().map(|r| (r.id.as_str(), r)).collect();
@@ -192,6 +218,7 @@ async fn fetch_from_bridge(state: &Arc<AppState>) -> Result<HueResponse, HueErro
         sensors,
         groups,
         motion_units,
+        accessories,
     })
 }
 

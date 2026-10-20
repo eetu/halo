@@ -44,10 +44,26 @@ export type MotionUnit = {
   };
 };
 
+export type BatteryState = "normal" | "low" | "critical";
+
+/** A device with a battery: a sensor, switch or dial. */
+export type Accessory = {
+  /** Device ID. */
+  id: string;
+  name: string;
+  product?: string;
+  room?: string;
+  battery?: number;
+  /** The bridge's own verdict; it still says normal at 9 %. */
+  batteryState?: BatteryState;
+  connected: boolean;
+};
+
 export type Response = {
   sensors: Sensor[];
   groups: Group[];
   motionUnits: MotionUnit[];
+  accessories: Accessory[];
 };
 
 export type HueLiveEvent =
@@ -58,7 +74,7 @@ export type HueLiveEvent =
       brightness?: number;
     }
   | { type: "temperature"; id: string; temperature: number }
-  | { type: "device_power"; deviceId: string; battery: number }
+  | { type: "device_power"; deviceId: string; battery: number; batteryState?: BatteryState }
   | { type: "motion"; id: string; motion: boolean; updatedAt: string }
   | { type: "motion_enabled"; id: string; enabled: boolean }
   | { type: "motion_sensitivity"; id: string; sensitivity: number }

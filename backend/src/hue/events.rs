@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 use crate::AppState;
 
 use super::discovery::get_bridge_address;
+use super::models::BatteryState;
 use super::motion::dark_threshold;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -28,6 +29,8 @@ pub enum HueLiveEvent {
         #[serde(rename = "deviceId")]
         device_id: String,
         battery: u8,
+        #[serde(rename = "batteryState", skip_serializing_if = "Option::is_none")]
+        battery_state: Option<BatteryState>,
     },
     /// `id` is a `motion`, `convenience_area_motion` or `grouped_motion` service.
     Motion {
@@ -186,23 +189,29 @@ fn parse_resource_update(resource: &serde_json::Value) -> Vec<HueLiveEvent> {
                 }]
             })
             .unwrap_or_default(),
-        "device_power" => resource
-            .get("power_state")
-            .and_then(|s| s.get("battery_level"))
-            .and_then(|b| b.as_u64())
-            .zip(
-                resource
-                    .get("owner")
-                    .and_then(|o| o.get("rid"))
-                    .and_then(|r| r.as_str()),
-            )
-            .map(|(battery, device_id)| {
-                vec![HueLiveEvent::DevicePower {
-                    device_id: device_id.to_string(),
-                    battery: battery as u8,
-                }]
-            })
-            .unwrap_or_default(),
+        "device_power" => {
+            let power_state = resource.get("power_state");
+            power_state
+                .and_then(|s| s.get("battery_level"))
+                .and_then(|b| b.as_u64())
+                .zip(
+                    resource
+                        .get("owner")
+                        .and_then(|o| o.get("rid"))
+                        .and_then(|r| r.as_str()),
+                )
+                .map(|(battery, device_id)| {
+                    vec![HueLiveEvent::DevicePower {
+                        device_id: device_id.to_string(),
+                        battery: battery as u8,
+                        battery_state: power_state
+                            .and_then(|s| s.get("battery_state"))
+                            .and_then(|s| s.as_str())
+                            .and_then(BatteryState::parse),
+                    }]
+                })
+                .unwrap_or_default()
+        }
         "motion" | "convenience_area_motion" | "grouped_motion" => {
             let Some(id) = resource.get("id").and_then(|v| v.as_str()) else {
                 return Vec::new();
@@ -338,6 +347,29 @@ mod tests {
             events,
             [json!({"type": "motion", "id": "g-1", "motion": false,
                     "updatedAt": "2026-10-04T09:00:00Z"})]
+        );
+    }
+
+    #[test]
+    fn device_power_update_carries_level_and_state() {
+        assert_eq!(
+            events(json!({
+                "id": "p-1", "type": "device_power",
+                "owner": {"rid": "d-1", "rtype": "device"},
+                "power_state": {"battery_state": "critical", "battery_level": 1},
+            })),
+            [
+                json!({"type": "device_power", "deviceId": "d-1", "battery": 1,
+                    "batteryState": "critical"})
+            ]
+        );
+        assert_eq!(
+            events(json!({
+                "id": "p-1", "type": "device_power",
+                "owner": {"rid": "d-1", "rtype": "device"},
+                "power_state": {"battery_state": "depleted", "battery_level": 0},
+            })),
+            [json!({"type": "device_power", "deviceId": "d-1", "battery": 0})]
         );
     }
 

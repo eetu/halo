@@ -9,6 +9,7 @@ pub struct HueResponse {
     pub sensors: Vec<Sensor>,
     pub groups: Vec<Group>,
     pub motion_units: Vec<MotionUnit>,
+    pub accessories: Vec<Accessory>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -48,6 +49,48 @@ pub enum RoomType {
     Inside,
     InsideCold,
     Outside,
+}
+
+/// A device with a battery: a sensor, switch or dial.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Accessory {
+    /// Device ID. Live `device_power` and `connectivity` events carry it.
+    pub id: String,
+    pub name: String,
+    /// Hue's product name, e.g. "Hue dimmer switch".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room: Option<String>,
+    /// Percent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub battery: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub battery_state: Option<BatteryState>,
+    pub connected: bool,
+}
+
+/// The bridge's own verdict on a battery. It still says `normal` at 9 %.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BatteryState {
+    Normal,
+    Low,
+    Critical,
+}
+
+impl BatteryState {
+    /// `None` for a state newer firmware may add, rather than failing the
+    /// whole resource decode.
+    pub fn parse(state: &str) -> Option<Self> {
+        match state {
+            "normal" => Some(Self::Normal),
+            "low" => Some(Self::Low),
+            "critical" => Some(Self::Critical),
+            _ => None,
+        }
+    }
 }
 
 /// What one motion automation listens to: a Hue service group, or a sensor or
@@ -203,6 +246,12 @@ pub struct OnState {
 pub struct DeviceResource {
     pub id: String,
     pub metadata: Metadata,
+    pub product_data: Option<ProductData>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProductData {
+    pub product_name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -214,6 +263,7 @@ pub struct DevicePowerResource {
 #[derive(Debug, Deserialize)]
 pub struct PowerState {
     pub battery_level: Option<u8>,
+    pub battery_state: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

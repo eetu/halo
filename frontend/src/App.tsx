@@ -2,6 +2,7 @@ import { css, useTheme } from "@emotion/react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { api } from "./api";
+import Accessories from "./components/Accessories";
 import CurrentTime from "./components/CurrentTime";
 import EnergyDailyHistory from "./components/Energy/DailyHistory";
 import EnergyFlow from "./components/Energy/Flow";
@@ -64,6 +65,11 @@ const applyEvent = (data: Response, event: HueLiveEvent): Response => {
         sensors: data.sensors.map((s) =>
           s.deviceId === event.deviceId ? { ...s, battery: event.battery } : s,
         ),
+        accessories: data.accessories.map((a) =>
+          a.id === event.deviceId
+            ? { ...a, battery: event.battery, batteryState: event.batteryState }
+            : a,
+        ),
       };
     case "motion":
       return {
@@ -113,17 +119,29 @@ const applyEvent = (data: Response, event: HueLiveEvent): Response => {
         sensors: data.sensors.map((s) =>
           s.deviceId === event.deviceId ? { ...s, connected: event.connected } : s,
         ),
+        accessories: data.accessories.map((a) =>
+          a.id === event.deviceId ? { ...a, connected: event.connected } : a,
+        ),
       };
   }
 };
 
-type View = "temperature" | "energy" | "lights" | "motion" | "radar" | "history" | "settings";
+type View =
+  | "temperature"
+  | "energy"
+  | "lights"
+  | "motion"
+  | "accessories"
+  | "radar"
+  | "history"
+  | "settings";
 
 const VIEWS: { id: View; icon: string }[] = [
   { id: "temperature", icon: "thermostat" },
   { id: "energy", icon: "bolt" },
   { id: "lights", icon: "lightbulb" },
   { id: "motion", icon: "directions_run" },
+  { id: "accessories", icon: "battery_full" },
   { id: "radar", icon: "radar" },
   { id: "history", icon: "timeline" },
   { id: "settings", icon: "settings" },
@@ -369,6 +387,14 @@ const App = () => {
                 css={{ gridColumn: "1 / span 4" }}
                 units={data?.motionUnits}
                 error={!!error}
+              />
+            )}
+
+            {view === "accessories" && (
+              <Accessories
+                css={{ gridColumn: "1 / span 4" }}
+                accessories={data?.accessories}
+                error={error}
               />
             )}
 
