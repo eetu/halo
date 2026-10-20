@@ -71,6 +71,8 @@ pub struct AppState {
         hue::models::MotionMemberKind,
         hue::models::Sensitivity,
         hue::models::Daylight,
+        hue::models::Accessory,
+        hue::models::BatteryState,
         hue::events::HueLiveEvent,
         hue::handlers::PairRequest,
         hue::handlers::PairResponse,

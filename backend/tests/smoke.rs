@@ -246,7 +246,7 @@ async fn hue_get_returns_data_from_bridge() {
     let mock_server = MockServer::start().await;
 
     // No motion area types, as on firmware that predates them; a scene the
-    // dashboard ignores.
+    // dashboard ignores; a switch with a flat battery.
     Mock::given(method("GET"))
         .and(path("/clip/v2/resource"))
         .respond_with(
@@ -255,6 +255,14 @@ async fn hue_get_returns_data_from_bridge() {
                 {"id": "m1", "type": "motion", "owner": {"rid": "d1"}, "enabled": true,
                  "motion": {"motion": false}},
                 {"id": "s1", "type": "scene", "metadata": {"name": "Ilta"}},
+                {"id": "d2", "type": "device", "metadata": {"name": "Olohuone switch"},
+                 "product_data": {"product_name": "Hue dimmer switch"}},
+                {"id": "p2", "type": "device_power", "owner": {"rid": "d2"},
+                 "power_state": {"battery_state": "critical", "battery_level": 0}},
+                {"id": "z2", "type": "zigbee_connectivity", "owner": {"rid": "d2"},
+                 "status": "connectivity_issue"},
+                {"id": "r1", "type": "room", "metadata": {"name": "Olohuone"},
+                 "children": [{"rid": "d2", "rtype": "device"}]},
             ]})),
         )
         .expect(1)
@@ -274,6 +282,13 @@ async fn hue_get_returns_data_from_bridge() {
     assert!(body["groups"].as_array().unwrap().is_empty());
     assert_eq!(body["motionUnits"][0]["name"], "Käytävä");
     assert_eq!(body["motionUnits"][0]["members"][0]["kind"], "sensor");
+    assert_eq!(
+        body["accessories"],
+        serde_json::json!([{
+            "id": "d2", "name": "Olohuone switch", "product": "Hue dimmer switch",
+            "room": "Olohuone", "battery": 0, "batteryState": "critical", "connected": false,
+        }])
+    );
 }
 
 #[actix_web::test]
@@ -290,6 +305,7 @@ async fn hue_get_returns_cached_data() {
             },
         }],
         motion_units: vec![],
+        accessories: vec![],
     };
     state.hue_cache.set("hue".to_owned(), cached).await;
 
