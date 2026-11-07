@@ -36,9 +36,9 @@ dependencies = [
 
 [[package]]
 name = "actix-files"
-version = "0.7.2"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db96438ec043d438f36bc211e260f0bec3de11dd0921feebe6b776e5a77ff3f9"
+checksum = "a4eb203ca8ec2fd8261d7ab0b46b0d33ac80abfc780bfdd021009decc61df62f"
 dependencies = [
  "actix-http",
  "actix-service",
@@ -1134,9 +1134,9 @@ dependencies = [
 
 [[package]]
 name = "http-range"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21dec9db110f5f872ed9699c3ecf50cf16f423502706ba5c72462e28d3157573"
+checksum = "2149c4b4b83390c71fab669730347d578ec6bdf759f2160c581ad8b8819733b4"
 
 [[package]]
 name = "httparse"
@@ -2020,9 +2020,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.41.0"
+version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c026b4444579e8d754556c6c75d040d69c4a44283cdb648ab8a8d5965c2cfa8"
+checksum = "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594"
 dependencies = [
  "bitflags",
  "fallible-iterator",
