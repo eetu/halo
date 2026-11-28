@@ -16,7 +16,7 @@ dotenvy = "0.15"
 futures-util = "0.3"
 utoipa = { version = "5", features = ["actix_extras"] }
 actix-files = "0.7"
-utoipa-swagger-ui = { version = "9", features = ["actix-web"] }
+utoipa-swagger-ui = { version = "10", features = ["actix-web"] }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
